@@ -1,0 +1,266 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+env:
+  NODE_VERSION: "18"
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 18
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  validate-package:
+    name: Validate Package
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Validate package
+        run: npm publish --dry-run
+
+      - name: Check package size
+        run: |
+          PACKAGE_SIZE=$(npm pack --dry-run 2>/dev/null | tail -n 1 | awk '{print $NF}')
+          echo "Package size: $PACKAGE_SIZE"
+          # Fail if package is over 10MB
+          if [ ${PACKAGE_SIZE%.*} -gt 10485760 ]; then
+            echo "❌ Package size exceeds 10MB limit"
+            exit 1
+          fi
+          echo "✅ Package size is acceptable"
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    services:
+      fastapi:
+        image: python:3.9
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "pip install --quiet fastapi uvicorn && python -c 'import fastapi'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install FastAPI dependencies
+        run: |
+          pip install fastapi uvicorn
+
+      - name: Start FastAPI test server
+        run: |
+          cd local-test/fast-api-app
+          python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Test type generation from live API
+        run: |
+          # Test that we can generate types from the running FastAPI server
+          mkdir -p test-integration-output
+          npx type-sync generate \
+            --url http://localhost:8000/openapi.json \
+            --output ./test-integration-output \
+            --hooks
+
+      - name: Verify generated files
+        run: |
+          echo "✅ Checking generated files..."
+          test -f test-integration-output/types.ts
+          test -f test-integration-output/api-client.ts  
+          test -f test-integration-output/hooks.ts
+          test -f test-integration-output/index.ts
+          echo "✅ All expected files generated successfully"
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  publish:
+    name: Publish to NPM
+    runs-on: ubuntu-latest
+    needs: [test, validate-package, integration-test, security]
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Update version from release tag
+        run: |
+          # Extract version from release tag (remove 'v' prefix if present)
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          echo "Publishing version: $VERSION"
+          npm version $VERSION --no-git-tag-version
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release assets
+        run: |
+          npm pack
+          mv *.tgz type-sync-${GITHUB_REF#refs/tags/}.tgz
+
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./type-sync-${{ github.event.release.tag_name }}.tgz
+          asset_name: type-sync-${{ github.event.release.tag_name }}.tgz
+          asset_content_type: application/gzip
+
+  publish-docs:
+    name: Publish Documentation
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build documentation
+        run: |
+          # Generate API documentation
+          npx typedoc src/index.ts --out docs-build/api
+
+          # Copy documentation files
+          mkdir -p docs-build
+          cp -r docs/* docs-build/
+          cp README.md docs-build/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-build
+          cname: type-sync.dev

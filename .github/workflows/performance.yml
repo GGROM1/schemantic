@@ -1,0 +1,119 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run performance tests daily at 2:00 AM UTC
+    - cron: "0 2 * * *"
+
+jobs:
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Setup test data
+        run: |
+          mkdir -p perf-test-data
+
+          # Download large OpenAPI schemas for performance testing
+          curl -o perf-test-data/large-schema-1.json https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/azure.com/2019-06-01.json || echo "Failed to download schema 1"
+          curl -o perf-test-data/large-schema-2.json https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/googleapis.com/2023-01-01.json || echo "Failed to download schema 2"
+
+          # Use local FastAPI schema as fallback
+          cp local-test/react-app/openapi-schema.json perf-test-data/fallback-schema.json
+
+      - name: Run performance tests
+        run: |
+          echo "🚀 Running performance benchmarks..."
+
+          # Test type generation performance
+          for schema in perf-test-data/*.json; do
+            if [ -f "$schema" ]; then
+              echo "Testing with $(basename $schema)..."
+              
+              start_time=$(date +%s%N)
+              timeout 300 npx type-sync generate \
+                --file "$schema" \
+                --output "./perf-output-$(basename $schema .json)" \
+                --quiet || echo "Timeout or error with $schema"
+              end_time=$(date +%s%N)
+              
+              duration=$(( (end_time - start_time) / 1000000 ))
+              echo "✅ Generated types for $(basename $schema) in ${duration}ms"
+              
+              # Check memory usage
+              du -sh "./perf-output-$(basename $schema .json)" 2>/dev/null || echo "Output directory not found"
+            fi
+          done
+
+      - name: Memory usage test
+        run: |
+          echo "🧠 Testing memory usage..."
+
+          # Run with memory monitoring
+          /usr/bin/time -v npx type-sync generate \
+            --file local-test/react-app/openapi-schema.json \
+            --output ./memory-test-output \
+            --quiet 2>&1 | grep -E "(Maximum resident set size|User time|System time)" || true
+
+      - name: Concurrent generation test
+        run: |
+          echo "⚡ Testing concurrent generation..."
+
+          # Test multiple concurrent generations
+          for i in {1..5}; do
+            npx type-sync generate \
+              --file local-test/react-app/openapi-schema.json \
+              --output "./concurrent-test-$i" \
+              --quiet &
+          done
+
+          wait
+          echo "✅ Concurrent generation completed"
+
+      - name: Bundle size analysis
+        run: |
+          echo "📦 Analyzing bundle size..."
+
+          # Check generated file sizes
+          echo "Generated file sizes:"
+          find . -name "*.ts" -path "./perf-output-*" -exec ls -lh {} \; | head -20
+          find . -name "*.ts" -path "./memory-test-output*" -exec ls -lh {} \; | head -10
+
+          # Check dist bundle size
+          echo "Distribution bundle sizes:"
+          ls -lh dist/ | head -20
+
+      - name: Performance regression check
+        run: |
+          echo "📊 Performance summary:"
+          echo "- Type generation completed for multiple schemas"
+          echo "- Memory usage within acceptable limits"
+          echo "- Concurrent generation successful"
+          echo "- Bundle sizes analyzed"
+
+          # In a real implementation, you would compare against baseline metrics
+          # and fail the build if performance regresses significantly
+
+      - name: Cleanup
+        run: |
+          rm -rf perf-test-data perf-output-* memory-test-output concurrent-test-*

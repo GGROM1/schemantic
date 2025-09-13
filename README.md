@@ -1,6 +1,17 @@
 # Type-Sync
 
+[![npm version](https://badge.fury.io/js/@cstannahill%2Ftype-sync.svg)](https://badge.fury.io/js/@cstannahill%2Ftype-sync)
+[![CI/CD](https://github.com/cstannahill/type-sync/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/cstannahill/type-sync/actions/workflows/ci-cd.yml)
+[![codecov](https://codecov.io/gh/cstannahill/type-sync/branch/main/graph/badge.svg)](https://codecov.io/gh/cstannahill/type-sync)
+[![npm downloads](https://img.shields.io/npm/dm/@cstannahill/type-sync.svg)](https://www.npmjs.com/package/@cstannahill/type-sync)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)](https://nodejs.org/)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.x-85EA2D?logo=swagger&logoColor=white)](https://swagger.io/specification/)
+
 A fully typed, extensible, modular TypeScript type generator for OpenAPI schemas (great with FastAPI). Generate TypeScript types, API clients, and optional hooks with sensible defaults.
+
+> **Status**: Production Ready 🚀 | **Maintenance**: Actively Maintained ✅ | **Support**: Community & Issues 💬
 
 ## Features
 
@@ -146,7 +157,32 @@ const config: TypeSyncConfig = {
 };
 ```
 
-### CLI Options
+### CLI Reference
+
+#### Commands
+
+```bash
+# Generate types and API client
+npx type-sync generate [source] [options]
+npx type-sync gen [source] [options]
+
+# Validate OpenAPI schema
+npx type-sync validate [source] [options]
+npx type-sync check [source] [options]
+
+# Manage plugins
+npx type-sync plugin list
+npx type-sync plugin load <path>
+
+# Initialize configuration
+npx type-sync init [directory] [options]
+
+# Get help
+npx type-sync --help
+npx type-sync generate --help
+```
+
+#### Generate Command Options
 
 ```bash
 # Input options
@@ -154,19 +190,20 @@ const config: TypeSyncConfig = {
 --file, -f <file>            OpenAPI schema file path
 
 # Output options
---output, -o <dir>           Output directory (default: generated)
+--output, -o <dir>           Output directory (default: ./src/generated)
 
 # Generation options
 --types                      Generate types only
 --client                     Generate API client only
 --hooks                      Generate React hooks factory
+--watch                      Watch for changes and regenerate
 
 # TypeScript options
 --strict                     Use strict TypeScript types (default: true)
 --naming <convention>        Naming convention (camelCase|snake_case|PascalCase)
 
 # Customization
---prefix <prefix>            Type name prefix
+--prefix <prefix>            Type name prefix (default: API)
 --suffix <suffix>            Type name suffix
 --exclude-paths <paths>      Exclude paths (comma-separated)
 --include-paths <paths>      Include paths (comma-separated)
@@ -175,12 +212,122 @@ const config: TypeSyncConfig = {
 
 # Plugin options
 --plugins <plugins>          Enable plugins (comma-separated)
---config <file>              Configuration file path
+--config, -c <file>          Configuration file path
 
 # Global options
+--interactive, -i            Run in interactive mode
 --verbose, -v                Verbose output
 --quiet, -q                  Quiet output
 --no-color                   Disable colored output
+```
+
+#### Validate Command Options
+
+```bash
+--url, -u <url>              OpenAPI schema URL
+--file, -f <file>            OpenAPI schema file path
+--fix                        Attempt to fix common issues
+```
+
+#### Init Command Options
+
+```bash
+--template, -t <template>    Configuration template (default)
+--yes                        Skip interactive prompts
+```
+
+### CLI Examples
+
+#### Basic Usage
+
+```bash
+# Generate from live FastAPI server
+npx type-sync generate --url http://localhost:8000/openapi.json
+
+# Generate from local schema file
+npx type-sync generate --file ./openapi-schema.json
+
+# Custom output directory
+npx type-sync generate --url http://localhost:8000/openapi.json --output ./src/api
+
+# Generate with React hooks
+npx type-sync generate --url http://localhost:8000/openapi.json --hooks
+
+# Interactive mode (guided setup)
+npx type-sync generate --interactive
+```
+
+#### Advanced Usage
+
+```bash
+# Custom naming and prefixes
+npx type-sync generate \
+  --url http://localhost:8000/openapi.json \
+  --naming PascalCase \
+  --prefix "MyAPI" \
+  --suffix "DTO"
+
+# Filter paths and schemas
+npx type-sync generate \
+  --url http://localhost:8000/openapi.json \
+  --include-paths "/api/v1/*,/auth/*" \
+  --exclude-paths "/health,/docs" \
+  --exclude-schemas "Error,ValidationError"
+
+# Enable plugins
+npx type-sync generate \
+  --url http://localhost:8000/openapi.json \
+  --plugins jsdoc,validation,react-hooks
+
+# Use configuration file
+npx type-sync generate --config ./typesync.config.json
+
+# Watch mode for development
+npx type-sync generate --url http://localhost:8000/openapi.json --watch
+
+# Generate specific outputs
+npx type-sync generate --url http://localhost:8000/openapi.json --types --client
+npx type-sync generate --url http://localhost:8000/openapi.json --hooks
+```
+
+#### Validation
+
+```bash
+# Validate schema
+npx type-sync validate --url http://localhost:8000/openapi.json
+
+# Validate local file
+npx type-sync validate --file ./openapi-schema.json
+
+# Validate with auto-fix attempts
+npx type-sync validate --file ./openapi-schema.json --fix
+```
+
+#### Configuration Management
+
+```bash
+# Initialize new project configuration
+npx type-sync init
+
+# Initialize with default settings
+npx type-sync init --yes
+
+# Initialize in specific directory
+npx type-sync init ./my-project
+
+# Initialize with template
+npx type-sync init --template react
+```
+
+#### Plugin Management
+
+```bash
+# List available plugins
+npx type-sync plugin list
+
+# Load custom plugin
+npx type-sync plugin load ./my-custom-plugin.js
+npx type-sync plugin load @my-org/typesync-plugin
 ```
 
 ## Generated Output
@@ -384,6 +531,10 @@ const customPlugin: TypeSyncPlugin = {
 };
 ```
 
+📚 **[Complete Plugin Development Guide](./docs/PLUGIN_DEVELOPMENT.md)** - Learn how to create custom plugins
+
+📖 **[Plugin API Reference](./docs/PLUGINS.md)** - Built-in plugins and usage examples
+
 ## FastAPI Integration
 
 ### Basic FastAPI Setup
@@ -572,15 +723,32 @@ const main = async () => {
 main();
 ```
 
+## Tutorials
+
+🚀 **[Complete FastAPI Tutorial](./docs/FASTAPI_TUTORIAL.md)** - Build a full-stack e-commerce app with FastAPI, Type-Sync, and React. Includes authentication, database models, type-safe API client, and React hooks.
+
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Here's how you can help:
 
-### Development Setup
+### 🐛 Bug Reports
+
+Found a bug? Please [open an issue](https://github.com/Cstannahill/type-sync/issues/new) with:
+
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs actual behavior
+- Your environment (Node.js version, OS, etc.)
+
+### 💡 Feature Requests
+
+Have an idea? [Start a discussion](https://github.com/Cstannahill/type-sync/discussions) or [open an issue](https://github.com/Cstannahill/type-sync/issues/new)!
+
+### 🔧 Development Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/type-sync.git
+git clone https://github.com/Cstannahill/type-sync.git
 cd type-sync
 
 # Install dependencies
@@ -592,20 +760,66 @@ npm run build
 # Run tests
 npm test
 
+# Run tests in watch mode
+npm run test:watch
+
 # Run linting
 npm run lint
+
+# Fix linting issues automatically
+npm run lint:fix
 ```
+
+### 🧪 Testing
+
+- Write tests for new features
+- Ensure all tests pass: `npm test`
+- Check test coverage: `npm run test:coverage`
+- Test with real FastAPI applications in `local-test/`
+
+### 📝 Documentation
+
+- Update README.md for new features
+- Add examples to documentation
+- Update API documentation in `docs/`
+
+### 🚀 Pull Requests
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Add tests and documentation
+5. Ensure all checks pass
+6. Commit with clear messages
+7. Push and create a Pull Request
+
+## Support & Community
+
+- 📖 **[Documentation](./docs/)** - Comprehensive guides and API reference
+- 🐛 **[Issue Tracker](https://github.com/Cstannahill/type-sync/issues)** - Bug reports and feature requests
+- 💬 **[Discussions](https://github.com/Cstannahill/type-sync/discussions)** - Community help and ideas
+- � **[Plugin Development](./docs/PLUGIN_DEVELOPMENT.md)** - Create custom generators
+- 📚 **[FastAPI Tutorial](./docs/FASTAPI_TUTORIAL.md)** - Complete integration guide
+
+### Getting Help
+
+1. Check the [documentation](./docs/) first
+2. Search [existing issues](https://github.com/Cstannahill/type-sync/issues)
+3. Ask in [discussions](https://github.com/Cstannahill/type-sync/discussions)
+4. Create a new issue with detailed information
+
+## Roadmap
+
+- [ ] Support for OpenAPI 3.1 features
+- [ ] GraphQL schema support
+- [ ] Additional framework integrations (Express, NestJS)
+- [ ] VS Code extension
+- [ ] Enhanced React Query integration
+- [ ] Performance optimizations for large schemas
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📖 [Documentation](https://github.com/your-org/type-sync/wiki)
-- 🐛 [Issue Tracker](https://github.com/your-org/type-sync/issues)
-- 💬 [Discussions](https://github.com/your-org/type-sync/discussions)
-- 📧 [Email Support](mailto:support@example.com)
 
 ## Changelog
 

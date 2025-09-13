@@ -1,9 +1,18 @@
 {
-  "name": "type-sync",
+  "name": "@cstannahill/type-sync",
   "version": "0.1.0",
   "description": "A fully typed, extensible TypeScript type generator for FastAPI OpenAPI schemas",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "type-sync": "dist/cli/index.js"
   },
@@ -24,10 +33,32 @@
     "fastapi",
     "code-generation",
     "api-client",
-    "type-generation"
+    "type-generation",
+    "swagger",
+    "api",
+    "codegen",
+    "client-generator",
+    "schema",
+    "rest-api",
+    "frontend",
+    "backend",
+    "full-stack",
+    "react",
+    "hooks",
+    "json-schema",
+    "developer-tools",
+    "automation"
   ],
-  "author": "",
+  "author": "Chris Stannahill <cstannahill@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cstannahill/type-sync.git"
+  },
+  "homepage": "https://github.com/Cstannahill/type-sync#readme",
+  "bugs": {
+    "url": "https://github.com/Cstannahill/type-sync/issues"
+  },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.3",
@@ -44,10 +75,15 @@
   "files": [
     "dist/**/*",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/**/*",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*"
   ],
   "dependencies": {
     "axios": "^1.12.1",
-    "commander": "^14.0.1"
+    "commander": "^14.0.1",
+    "chokidar": "^4.0.1"
   }
 }

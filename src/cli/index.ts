@@ -54,6 +54,7 @@ export class TypeSyncCli {
     this.addValidateCommand();
     this.addPluginCommand();
     this.addInitCommand();
+    this.addHelpCommand();
   }
 
   /**
@@ -150,6 +151,18 @@ export class TypeSyncCli {
       .option("--yes", "Skip interactive prompts")
       .action(async (directory, options) => {
         await this.handleInitCommand(directory, options);
+      });
+  }
+
+  /**
+   * Add help command
+   */
+  private addHelpCommand(): void {
+    this.program
+      .command("help [command]")
+      .description("Display help for a specific command")
+      .action((command?: string) => {
+        this.handleHelpCommand(command);
       });
   }
 
@@ -261,6 +274,71 @@ export class TypeSyncCli {
       console.log(`Description: ${plugin.description}`);
     } catch (error) {
       this.handleError(error, {});
+    }
+  }
+
+  /**
+   * Handle help command
+   */
+  private handleHelpCommand(command?: string): void {
+    if (command) {
+      // Show help for specific command
+      const subCommand = this.program.commands.find(
+        (cmd) => cmd.name() === command
+      );
+      if (subCommand) {
+        subCommand.help();
+      } else {
+        console.log(`Unknown command: ${command}`);
+        console.log("Available commands:");
+        this.program.commands.forEach((cmd) => {
+          console.log(`  ${cmd.name()} - ${cmd.description()}`);
+        });
+      }
+    } else {
+      // Show general help with examples
+      console.log("📚 Type-Sync CLI Examples:");
+      console.log("\n� Basic Usage:");
+      console.log("  # Generate from FastAPI server");
+      console.log(
+        "  npx type-sync generate --url http://localhost:8000/openapi.json"
+      );
+      console.log("\n  # Generate from local file");
+      console.log("  npx type-sync generate --file ./openapi-schema.json");
+      console.log("\n  # Custom output directory");
+      console.log(
+        "  npx type-sync generate --url http://localhost:8000/openapi.json --output ./src/api"
+      );
+      console.log("\n⚛️ React Integration:");
+      console.log("  # Generate with React hooks");
+      console.log(
+        "  npx type-sync generate --url http://localhost:8000/openapi.json --hooks"
+      );
+      console.log("\n🎛️ Interactive Mode:");
+      console.log("  npx type-sync generate --interactive");
+      console.log("\n⚙️ Configuration:");
+      console.log("  # Initialize configuration");
+      console.log("  npx type-sync init");
+      console.log("\n  # Use configuration file");
+      console.log("  npx type-sync generate --config ./typesync.config.json");
+      console.log("\n✅ Validation:");
+      console.log("  # Validate schema");
+      console.log(
+        "  npx type-sync validate --url http://localhost:8000/openapi.json"
+      );
+      console.log("\n� Advanced:");
+      console.log("  # Custom naming and filtering");
+      console.log(
+        "  npx type-sync generate --url http://localhost:8000/openapi.json \\"
+      );
+      console.log(
+        "    --naming PascalCase --prefix MyAPI --exclude-paths '/health,/docs'"
+      );
+      console.log("\n📖 For complete documentation:");
+      console.log("  https://github.com/Cstannahill/type-sync#readme");
+      console.log("\n💡 Get help for specific commands:");
+      console.log("  npx type-sync help generate");
+      console.log("  npx type-sync generate --help");
     }
   }
 
