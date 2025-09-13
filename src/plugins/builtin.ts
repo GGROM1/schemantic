@@ -16,6 +16,12 @@ import {
 } from "../types/schema";
 import { OpenAPISchema } from "../types/openapi";
 
+// Import advanced plugins
+import zodValidationPlugin from "./zod-validation";
+import performanceMonitoringPlugin from "./performance-monitoring";
+import requestDeduplicationPlugin from "./request-deduplication";
+import brandedTypesPlugin from "./branded-types";
+
 /**
  * Built-in plugin for adding JSDoc comments
  */
@@ -329,10 +335,41 @@ export const strictModePlugin: TypeSyncPlugin = {
 };
 
 /**
- * Get all built-in plugins
+ * Get all built-in plugins (including advanced plugins)
  */
 export function getBuiltinPlugins(): TypeSyncPlugin[] {
+  return [
+    // Basic plugins
+    jsdocPlugin,
+    validationPlugin,
+    reactHooksPlugin,
+    strictModePlugin,
+
+    // Advanced plugins
+    zodValidationPlugin,
+    performanceMonitoringPlugin,
+    requestDeduplicationPlugin,
+    brandedTypesPlugin,
+  ];
+}
+
+/**
+ * Get basic built-in plugins only
+ */
+export function getBasicBuiltinPlugins(): TypeSyncPlugin[] {
   return [jsdocPlugin, validationPlugin, reactHooksPlugin, strictModePlugin];
+}
+
+/**
+ * Get advanced built-in plugins only
+ */
+export function getAdvancedBuiltinPlugins(): TypeSyncPlugin[] {
+  return [
+    zodValidationPlugin,
+    performanceMonitoringPlugin,
+    requestDeduplicationPlugin,
+    brandedTypesPlugin,
+  ];
 }
 
 /**

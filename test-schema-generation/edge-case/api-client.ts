@@ -149,3 +149,71 @@ export class SampleApiClient {
   public clearAuthToken() {
     if (this.config.headers) delete (this.config.headers as any)['Authorization'];
   }}
+
+
+
+/**
+ * Validation middleware for API requests and responses
+ */
+export class ValidationError extends Error {
+  constructor(public errors: string[], public data: unknown) {
+    super(`Validation failed: ${errors.join(', ')}`);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Validate request data before sending
+ */
+export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`),
+      data
+    );
+  }
+  
+  return result.data;
+}
+
+/**
+ * Validate response data after receiving
+ */
+export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    console.warn('Response validation failed:', result.error.errors);
+    throw new ValidationError(result.error.errors.map(err => `${err.path.join(".")}: ${err.message}`), data);
+  }
+  
+  return result.data;
+}
+
+
+/**
+ * Utility functions for validation operations
+ */
+
+/**
+ * Create a validation pipeline for multiple schemas
+ */
+export function createValidationPipeline<T>(...schemas: ZodType<unknown>[]): ZodType<T> {
+  return schemas.reduce((acc, schema) => acc.pipe(schema)) as ZodType<T>;
+}
+
+/**
+ * Lazy validation for performance optimization
+ */
+export function createLazyValidator<T>(schemaFactory: () => ZodType<T>) {
+  let schema: ZodType<T> | null = null;
+  
+  return (data: unknown): T => {
+    if (!schema) {
+      schema = schemaFactory();
+    }
+    return schema.parse(data);
+  };
+}

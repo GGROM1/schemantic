@@ -358,8 +358,8 @@ export class TypeSync {
       ...new Set(generatedTypes.flatMap((t) => t.dependencies)),
     ];
 
-    // No imports needed since all types are in the same file
-    const imports = "";
+    // Generate imports from dependencies
+    const imports = this.generateImportsFromDependencies(allDependencies);
 
     // Generate types content (remove any existing imports from individual types)
     const typesContent = generatedTypes
@@ -612,5 +612,71 @@ export * from './hooks';
    */
   getConfig(): TypeSyncConfig {
     return this.config;
+  }
+
+  /**
+   * Generate import statements from dependencies
+   */
+  private generateImportsFromDependencies(dependencies: string[]): string {
+    if (dependencies.length === 0) {
+      return "";
+    }
+
+    const imports: string[] = [];
+
+    // Known external package dependencies that should generate imports
+    const KNOWN_EXTERNAL_PACKAGES = new Set([
+      "zod",
+      "class-validator",
+      "react-query",
+      "crypto-js",
+      "performance-hooks",
+      "axios",
+      "fetch",
+    ]);
+
+    // Generate import statements for known external dependencies only
+    for (const dep of dependencies) {
+      // Only generate imports for known external packages
+      // Skip type names that are defined in the same file
+      if (!KNOWN_EXTERNAL_PACKAGES.has(dep)) {
+        continue; // Skip internal type references
+      }
+
+      switch (dep) {
+        case "zod":
+          imports.push("import { z } from 'zod';");
+          break;
+        case "class-validator":
+          imports.push(
+            "import { IsString, IsNumber, IsBoolean, IsOptional, IsNotEmpty, MinLength, MaxLength, Min, Max, Matches } from 'class-validator';"
+          );
+          break;
+        case "react-query":
+          imports.push(
+            "import { useQuery, useMutation, useQueryClient } from 'react-query';"
+          );
+          break;
+        case "crypto-js":
+          imports.push("import CryptoJS from 'crypto-js';");
+          break;
+        case "performance-hooks":
+          imports.push("import { performance } from 'perf_hooks';");
+          break;
+        case "axios":
+          imports.push("import axios from 'axios';");
+          break;
+        case "fetch":
+          // fetch is a global in modern environments, no import needed
+          break;
+        // Add more external dependencies as needed
+        default:
+          // Should not reach here due to the filter above
+          console.warn(`Unknown external dependency: ${dep}`);
+          break;
+      }
+    }
+
+    return imports.length > 0 ? imports.join("\n") + "\n\n" : "";
   }
 }

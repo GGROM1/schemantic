@@ -1,3 +1,3 @@
-export type { APIPost, APIUser, APIPostListResponse } from './types';
+export type { APIPost, BrandedAPIPost, APIPostSchema, validateAPIPost, parseAPIPost, isAPIPost, APIUser, BrandedAPIUser, APIUserSchema, validateAPIUser, parseAPIUser, isAPIUser, APIPostListResponse, BrandedAPIPostListResponse, APIPostListResponseSchema, validateAPIPostListResponse, parseAPIPostListResponse, isAPIPostListResponse } from './types';
 export { BlogApiClient } from './api-client';
 export { createApiHooks } from './hooks';

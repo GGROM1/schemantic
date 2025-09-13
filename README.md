@@ -17,7 +17,7 @@ A fully typed, extensible, modular TypeScript type generator for OpenAPI schemas
 
 - 🔧 **Zero Configuration** - Works out of the box with FastAPI applications
 - 🎯 **Fully Typed** - Generates comprehensive TypeScript types with no `any` types
-- 🧩 **Modular Architecture** - Extensible plugin system for custom generators
+- 🧩 **Modular Architecture** - Extensible plugin system with advanced features like performance monitoring, request deduplication, and branded types
 - 🚀 **Fast & Efficient** - Optimized for large schemas and complex APIs
 - 📦 **Multiple Outputs** - Types, API clients, React hooks, and more
 - 🔍 **Schema Validation** - Built-in OpenAPI schema validation
@@ -125,6 +125,11 @@ const config: TypeSyncConfig = {
   generateTypes: true,
   generateApiClient: true,
   generateHooks: false, // Enable React hooks generation
+
+  // Advanced options
+  preserveComments: true,
+  generateIndexFile: true,
+  generateBarrelExports: true,
 
   // TypeScript configuration
   useStrictTypes: true,
@@ -277,7 +282,7 @@ npx type-sync generate \
 # Enable plugins
 npx type-sync generate \
   --url http://localhost:8000/openapi.json \
-  --plugins jsdoc,validation,react-hooks
+  --plugins jsdoc,validation,zod-validation
 
 # Use configuration file
 npx type-sync generate --config ./typesync.config.json
@@ -458,10 +463,19 @@ Type-Sync includes a powerful plugin system for extending functionality:
 
 ### Built-in Plugins
 
-- **jsdoc** - Adds JSDoc comments to generated types
+#### Basic Plugins
+
+- **jsdoc** - Adds JSDoc comments to generated types and methods
 - **validation** - Adds validation decorators for class-validator
 - **react-hooks** - Generates React hooks for API endpoints
 - **strict-mode** - Adds TypeScript strict mode enhancements
+
+#### Advanced Plugins
+
+- **zod-validation** - Generates Zod schemas for runtime validation with type-safe pipelines, performance-optimized caching, and runtime type guards
+- **performance-monitoring** - Implements sophisticated performance tracking with request timing analysis, bundle size optimization, and memory usage profiling
+- **request-deduplication** - Intelligent request deduplication with content-based hashing, cache invalidation strategies, and stale-while-revalidate patterns
+- **branded-types** - Creates branded types for enhanced compile-time safety, phantom type parameters for state management, and discriminated unions with runtime guards
 
 ### Using Plugins
 
@@ -472,12 +486,12 @@ const config: TypeSyncConfig = {
   plugins: [
     { name: 'jsdoc', enabled: true },
     { name: 'validation', enabled: true },
-    { name: 'react-hooks', enabled: true },
+    { name: 'zod-validation', enabled: true },
   ],
 };
 
 // Or via CLI
-npx type-sync generate --plugins jsdoc,validation,react-hooks
+npx type-sync generate --plugins jsdoc,validation,zod-validation
 ```
 
 ### Creating Custom Plugins

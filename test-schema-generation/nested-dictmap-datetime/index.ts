@@ -1,3 +1,3 @@
-export type { APIReport, APIEntry, APISubEntry } from './types';
+export type { APIReport, BrandedAPIReport, APIReportSchema, validateAPIReport, parseAPIReport, isAPIReport, APIEntry, BrandedAPIEntry, APIEntrySchema, validateAPIEntry, parseAPIEntry, isAPIEntry, APISubEntry, BrandedAPISubEntry, APISubEntrySchema, validateAPISubEntry, parseAPISubEntry, isAPISubEntry } from './types';
 export { NestedDataApiClient } from './api-client';
 export { createApiHooks } from './hooks';

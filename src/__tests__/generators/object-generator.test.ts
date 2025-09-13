@@ -2,28 +2,28 @@
  * Tests for the ObjectTypeGenerator
  */
 
-import { ObjectTypeGenerator } from '../../generators/object-generator';
-import { TypeGenerationOptions } from '../../generators/base';
-import { ResolvedSchema } from '../../types/schema';
-import { GenerationContext } from '../../types/core';
-import { createTestConfig } from '../test-config';
+import { ObjectTypeGenerator } from "../../generators/object-generator";
+import { TypeGenerationOptions } from "../../generators/base";
+import { ResolvedSchema } from "../../types/schema";
+import { GenerationContext } from "../../types/core";
+import { createTestConfig } from "../test-config";
 
-describe('ObjectTypeGenerator', () => {
+describe("ObjectTypeGenerator", () => {
   const createOptions = (): TypeGenerationOptions => ({
     useStrictTypes: true,
     useOptionalChaining: true,
     useNullishCoalescing: true,
-    namingConvention: 'camelCase',
+    namingConvention: "camelCase",
     preserveComments: true,
   });
 
   const createContext = (): GenerationContext => ({
     config: createTestConfig({
-      outputDir: './test-output',
+      outputDir: "./test-output",
     }),
     schema: {
-      openapi: '3.0.0',
-      info: { title: 'Test API', version: '1.0.0' },
+      openapi: "3.0.0",
+      info: { title: "Test API", version: "1.0.0" },
       paths: {},
     },
     resolvedSchemas: new Map(),
@@ -39,325 +39,327 @@ describe('ObjectTypeGenerator', () => {
     schemaResolver: jest.fn(),
   });
 
-  describe('constructor', () => {
-    it('should create instance with options', () => {
+  describe("constructor", () => {
+    it("should create instance with options", () => {
       const options = createOptions();
       const generator = new ObjectTypeGenerator(options);
-      
+
       expect(generator).toBeInstanceOf(ObjectTypeGenerator);
     });
   });
 
-  describe('canHandle', () => {
+  describe("canHandle", () => {
     let generator: ObjectTypeGenerator;
-    
+
     beforeEach(() => {
       generator = new ObjectTypeGenerator(createOptions());
     });
 
-    it('should handle object schemas', () => {
+    it("should handle object schemas", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
+          id: { type: "string" },
+          name: { type: "string" },
         },
       };
-      
+
       expect(generator.canHandle(schema)).toBe(true);
     });
 
-    it('should handle schemas with properties', () => {
+    it("should handle schemas with properties", () => {
       const schema: ResolvedSchema = {
         properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
+          id: { type: "string" },
+          name: { type: "string" },
         },
       };
-      
+
       expect(generator.canHandle(schema)).toBe(true);
     });
 
-    it('should not handle non-object schemas', () => {
+    it("should not handle non-object schemas", () => {
       const schema: ResolvedSchema = {
-        type: 'string',
+        type: "string",
       };
-      
+
       expect(generator.canHandle(schema)).toBe(false);
     });
 
-    it('should not handle empty schemas', () => {
+    it("should not handle empty schemas", () => {
       const schema: ResolvedSchema = {};
-      
+
       expect(generator.canHandle(schema)).toBe(false);
     });
   });
 
-  describe('generate', () => {
+  describe("generate", () => {
     let generator: ObjectTypeGenerator;
     let context: GenerationContext;
-    
+
     beforeEach(() => {
       generator = new ObjectTypeGenerator(createOptions());
       context = createContext();
     });
 
-    it('should generate interface for object schema', () => {
+    it("should generate interface for object schema", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
-          email: { type: 'string', format: 'email' },
+          id: { type: "string" },
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
         },
-        required: ['id', 'name'],
+        required: ["id", "name"],
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.name).toBe('GeneratedType');
-      expect(result.content).toContain('export interface GeneratedType');
-      expect(result.content).toContain('id: string;');
-      expect(result.content).toContain('name: string;');
-      expect(result.content).toContain('email?: string | undefined;');
+
+      expect(result.name).toBe("GeneratedType");
+      expect(result.content).toContain("export interface GeneratedType");
+      expect(result.content).toContain("id: string;");
+      expect(result.content).toContain("name: string;");
+      expect(result.content).toContain("email?: string | undefined;");
       expect(result.isInterface).toBe(true);
       expect(result.isEnum).toBe(false);
       expect(result.isUnion).toBe(false);
     });
 
-    it('should handle optional properties', () => {
+    it("should handle optional properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
-          email: { type: 'string' },
+          id: { type: "string" },
+          name: { type: "string" },
+          email: { type: "string" },
         },
-        required: ['id'],
+        required: ["id"],
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('id: string;');
-      expect(result.content).toContain('name?: string | undefined;');
-      expect(result.content).toContain('email?: string | undefined;');
+
+      expect(result.content).toContain("id: string;");
+      expect(result.content).toContain("name?: string | undefined;");
+      expect(result.content).toContain("email?: string | undefined;");
     });
 
-    it('should handle array properties', () => {
+    it("should handle array properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           tags: {
-            type: 'array',
-            items: { type: 'string' },
+            type: "array",
+            items: { type: "string" },
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('tags?: string[] | undefined;');
+
+      expect(result.content).toContain("tags?: string[] | undefined;");
     });
 
-    it('should handle nested object properties', () => {
+    it("should handle nested object properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           address: {
-            type: 'object',
+            type: "object",
             properties: {
-              street: { type: 'string' },
-              city: { type: 'string' },
+              street: { type: "string" },
+              city: { type: "string" },
             },
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('address?: Record<string, unknown> | undefined;');
+
+      expect(result.content).toContain("address?: {");
+      expect(result.content).toContain("street?: string;");
+      expect(result.content).toContain("city?: string;");
     });
 
-    it('should handle enum properties', () => {
+    it("should handle enum properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           status: {
-            type: 'string',
-            enum: ['active', 'inactive', 'pending'],
+            type: "string",
+            enum: ["active", "inactive", "pending"],
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('status?: string | undefined;');
+
+      expect(result.content).toContain("status?: string | undefined;");
     });
 
-    it('should handle const properties', () => {
+    it("should handle const properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           type: {
-            const: 'user',
+            const: "user",
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
+
       expect(result.content).toContain('type?: "user" | undefined;');
     });
 
-    it('should handle union properties', () => {
+    it("should handle union properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           value: {
-            oneOf: [
-              { type: 'string' },
-              { type: 'number' },
-            ],
+            oneOf: [{ type: "string" }, { type: "number" }],
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('value?: string | number | undefined;');
+
+      expect(result.content).toContain("value?: string | number | undefined;");
     });
 
-    it('should handle intersection properties', () => {
+    it("should handle intersection properties", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           user: {
             allOf: [
-              { type: 'object', properties: { id: { type: 'string' } } },
-              { type: 'object', properties: { name: { type: 'string' } } },
+              { type: "object", properties: { id: { type: "string" } } },
+              { type: "object", properties: { name: { type: "string" } } },
             ],
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('user?: Record<string, unknown> & Record<string, unknown> | undefined;');
+
+      expect(result.content).toContain("user?: {");
+      expect(result.content).toContain("id?: string;");
+      expect(result.content).toContain("} & {");
+      expect(result.content).toContain("name?: string;");
     });
 
-    it('should handle schema references', () => {
+    it("should handle schema references", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           user: {
-            $ref: '#/components/schemas/User',
+            $ref: "#/components/schemas/User",
           },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('user?: User | undefined;');
-      expect(result.dependencies).toContain('User');
+
+      expect(result.content).toContain("user?: User | undefined;");
+      expect(result.dependencies).toContain("User");
     });
 
-    it('should add comments when description is present', () => {
+    it("should add comments when description is present", () => {
       const schema: ResolvedSchema = {
-        type: 'object',
-        description: 'A user object',
+        type: "object",
+        description: "A user object",
         properties: {
-          id: { type: 'string', description: 'User ID' },
+          id: { type: "string", description: "User ID" },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('/**');
-      expect(result.content).toContain('A user object');
-      expect(result.content).toContain('User ID');
+
+      expect(result.content).toContain("/**");
+      expect(result.content).toContain("A user object");
+      expect(result.content).toContain("User ID");
     });
 
-    it('should handle custom type mappings', () => {
+    it("should handle custom type mappings", () => {
       const options = createOptions();
       options.customTypeMappings = {
-        'uuid': 'string',
-        'datetime': 'Date',
+        uuid: "string",
+        datetime: "Date",
       };
-      
+
       const generator = new ObjectTypeGenerator(options);
-      
+
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string', format: 'uuid' },
-          createdAt: { type: 'string', format: 'datetime' },
+          id: { type: "string", format: "uuid" },
+          createdAt: { type: "string", format: "datetime" },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('id?: string | undefined;');
-      expect(result.content).toContain('createdAt?: string | undefined;');
+
+      expect(result.content).toContain("id?: string | undefined;");
+      expect(result.content).toContain("createdAt?: string | undefined;");
     });
 
-    it('should handle different naming conventions', () => {
+    it("should handle different naming conventions", () => {
       const options = createOptions();
-      options.namingConvention = 'snake_case';
-      
+      options.namingConvention = "snake_case";
+
       const generator = new ObjectTypeGenerator(options);
-      
+
       const schema: ResolvedSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          firstName: { type: 'string' },
-          lastName: { type: 'string' },
+          firstName: { type: "string" },
+          lastName: { type: "string" },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.content).toContain('first_name?: string | undefined;');
-      expect(result.content).toContain('last_name?: string | undefined;');
+
+      expect(result.content).toContain("first_name?: string | undefined;");
+      expect(result.content).toContain("last_name?: string | undefined;");
     });
 
-    it('should handle type prefix and suffix', () => {
+    it("should handle type prefix and suffix", () => {
       const options = createOptions();
-      options.typePrefix = 'Api';
-      options.typeSuffix = 'Type';
-      
+      options.typePrefix = "Api";
+      options.typeSuffix = "Type";
+
       const generator = new ObjectTypeGenerator(options);
-      
+
       const schema: ResolvedSchema = {
-        type: 'object',
-        title: 'User',
+        type: "object",
+        title: "User",
         properties: {
-          id: { type: 'string' },
+          id: { type: "string" },
         },
       };
-      
+
       const result = generator.generate(schema, context);
-      
-      expect(result.name).toBe('ApiUserType');
+
+      expect(result.name).toBe("ApiUserType");
     });
   });
 
-  describe('getPriority', () => {
-    it('should return priority value', () => {
+  describe("getPriority", () => {
+    it("should return priority value", () => {
       const generator = new ObjectTypeGenerator(createOptions());
-      
+
       expect(generator.getPriority()).toBe(100);
     });
   });
 
-  describe('getMetadata', () => {
-    it('should return metadata', () => {
+  describe("getMetadata", () => {
+    it("should return metadata", () => {
       const generator = new ObjectTypeGenerator(createOptions());
       const metadata = generator.getMetadata();
-      
-      expect(metadata.name).toBe('Object Type Generator');
-      expect(metadata.version).toBe('1.0.0');
-      expect(metadata.supportedTypes).toContain('object');
-      expect(metadata.description).toContain('TypeScript interfaces');
+
+      expect(metadata.name).toBe("Object Type Generator");
+      expect(metadata.version).toBe("1.0.0");
+      expect(metadata.supportedTypes).toContain("object");
+      expect(metadata.description).toContain("TypeScript interfaces");
     });
   });
 });

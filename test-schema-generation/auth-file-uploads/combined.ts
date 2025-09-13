@@ -1,5 +1,5 @@
 // Combined TypeScript Module
-// Generated: 2025-09-13T20:38:44.685Z
+// Generated: 2025-09-13T23:39:23.984Z
 // Source Directory: auth-file-uploads
 // Architecture: Modular API client with hooks and type definitions
 // api-client
@@ -152,6 +152,73 @@ export class AuthUploadApiClient {
   }}
 
 
+
+/**
+ * Validation middleware for API requests and responses
+ */
+export class ValidationError extends Error {
+  constructor(public errors: string[], public data: unknown) {
+    super(`Validation failed: ${errors.join(', ')}`);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Validate request data before sending
+ */
+export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`),
+      data
+    );
+  }
+  
+  return result.data;
+}
+
+/**
+ * Validate response data after receiving
+ */
+export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    console.warn('Response validation failed:', result.error.errors);
+    throw new ValidationError(result.error.errors.map(err => `${err.path.join(".")}: ${err.message}`), data);
+  }
+  
+  return result.data;
+}
+
+
+/**
+ * Utility functions for validation operations
+ */
+
+/**
+ * Create a validation pipeline for multiple schemas
+ */
+export function createValidationPipeline<T>(...schemas: ZodType<unknown>[]): ZodType<T> {
+  return schemas.reduce((acc, schema) => acc.pipe(schema)) as ZodType<T>;
+}
+
+/**
+ * Lazy validation for performance optimization
+ */
+export function createLazyValidator<T>(schemaFactory: () => ZodType<T>) {
+  let schema: ZodType<T> | null = null;
+  
+  return (data: unknown): T => {
+    if (!schema) {
+      schema = schemaFactory();
+    }
+    return schema.parse(data);
+  };
+}
+
 // barrel
 // Barrel exports for type-sync generated code
 export * from './types';
@@ -200,22 +267,173 @@ export function createApiHooks(client: AuthUploadApiClient) {
 
 
 // index
-export type { APILoginRequest, APILoginResponse, APIFileUploadResponse } from './types';
+export type { APILoginRequest, BrandedAPILoginRequest, APILoginRequestSchema, validateAPILoginRequest, parseAPILoginRequest, isAPILoginRequest, APILoginResponse, BrandedAPILoginResponse, APILoginResponseSchema, validateAPILoginResponse, parseAPILoginResponse, isAPILoginResponse, APIFileUploadResponse, BrandedAPIFileUploadResponse, APIFileUploadResponseSchema, validateAPIFileUploadResponse, parseAPIFileUploadResponse, isAPIFileUploadResponse } from './types';
 export { AuthUploadApiClient } from './api-client';
 export { createApiHooks } from './hooks';
 
 // types
+import { z } from 'zod';
+
 export interface APILoginRequest {
   username: string;
   password: string;
+}
+
+
+
+/**
+ * Zod validation schema for APILoginRequest
+ */
+export const APILoginRequestSchema = z.object({
+  username: z.string(),
+  password: z.string()
+}).strict();
+
+/**
+ * Validate APILoginRequest data with detailed error reporting
+ */
+export function validateAPILoginRequest(data: unknown): { success: true; data: APILoginRequest } | { success: false; errors: string[] } {
+  const result = APILoginRequestSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APILoginRequest data with exception on validation failure
+ */
+export function parseAPILoginRequest(data: unknown): APILoginRequest {
+  return APILoginRequestSchema.parse(data);
+}
+/**
+ * Branded type for APILoginRequest with compile-time guarantees
+ */
+export type BrandedAPILoginRequest = APILoginRequest & { __brand: 'APILoginRequest' };
+
+/**
+ * Create a branded APILoginRequest instance
+ */
+export function createBrandedAPILoginRequest(data: APILoginRequest): BrandedAPILoginRequest {
+  return data as BrandedAPILoginRequest;
+}
+/**
+ * Runtime type guard for APILoginRequest
+ */
+export function isAPILoginRequest(value: unknown): value is APILoginRequest {
+  return APILoginRequestSchema.safeParse(value).success;
 }
 
 export interface APILoginResponse {
   token: string;
 }
 
+
+
+/**
+ * Zod validation schema for APILoginResponse
+ */
+export const APILoginResponseSchema = z.object({
+  token: z.string()
+}).strict();
+
+/**
+ * Validate APILoginResponse data with detailed error reporting
+ */
+export function validateAPILoginResponse(data: unknown): { success: true; data: APILoginResponse } | { success: false; errors: string[] } {
+  const result = APILoginResponseSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APILoginResponse data with exception on validation failure
+ */
+export function parseAPILoginResponse(data: unknown): APILoginResponse {
+  return APILoginResponseSchema.parse(data);
+}
+/**
+ * Branded type for APILoginResponse with compile-time guarantees
+ */
+export type BrandedAPILoginResponse = APILoginResponse & { __brand: 'APILoginResponse' };
+
+/**
+ * Create a branded APILoginResponse instance
+ */
+export function createBrandedAPILoginResponse(data: APILoginResponse): BrandedAPILoginResponse {
+  return data as BrandedAPILoginResponse;
+}
+/**
+ * Runtime type guard for APILoginResponse
+ */
+export function isAPILoginResponse(value: unknown): value is APILoginResponse {
+  return APILoginResponseSchema.safeParse(value).success;
+}
+
 export interface APIFileUploadResponse {
   fileId: string;
   url: string;
+}
+
+
+
+/**
+ * Zod validation schema for APIFileUploadResponse
+ */
+export const APIFileUploadResponseSchema = z.object({
+  file_id: z.string(),
+  url: z.string()
+}).strict();
+
+/**
+ * Validate APIFileUploadResponse data with detailed error reporting
+ */
+export function validateAPIFileUploadResponse(data: unknown): { success: true; data: APIFileUploadResponse } | { success: false; errors: string[] } {
+  const result = APIFileUploadResponseSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIFileUploadResponse data with exception on validation failure
+ */
+export function parseAPIFileUploadResponse(data: unknown): APIFileUploadResponse {
+  return APIFileUploadResponseSchema.parse(data);
+}
+/**
+ * Branded type for APIFileUploadResponse with compile-time guarantees
+ */
+export type BrandedAPIFileUploadResponse = APIFileUploadResponse & { __brand: 'APIFileUploadResponse' };
+
+/**
+ * Create a branded APIFileUploadResponse instance
+ */
+export function createBrandedAPIFileUploadResponse(data: APIFileUploadResponse): BrandedAPIFileUploadResponse {
+  return data as BrandedAPIFileUploadResponse;
+}
+/**
+ * Runtime type guard for APIFileUploadResponse
+ */
+export function isAPIFileUploadResponse(value: unknown): value is APIFileUploadResponse {
+  return APIFileUploadResponseSchema.safeParse(value).success;
 }
 
