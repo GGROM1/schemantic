@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+
+/**
+ * CLI entry point for type-sync
+ * This file is compiled from TypeScript and serves as the binary entry point
+ */
+
+const { cli } = require('./cli/index');
+
+// Run the CLI
+cli.run();

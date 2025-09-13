@@ -1,0 +1,53 @@
+{
+  "name": "type-sync",
+  "version": "1.0.0",
+  "description": "A fully typed, extensible TypeScript type generator for FastAPI OpenAPI schemas",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "type-sync": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "keywords": [
+    "typescript",
+    "openapi",
+    "fastapi",
+    "code-generation",
+    "api-client",
+    "type-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.43.0",
+    "@typescript-eslint/parser": "^8.43.0",
+    "eslint": "^9.35.0",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "axios": "^1.12.1",
+    "commander": "^14.0.1"
+  }
+}

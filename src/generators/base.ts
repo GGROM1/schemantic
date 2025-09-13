@@ -1,0 +1,287 @@
+/**
+ * Base type generator interface and abstract implementation
+ * Provides the foundation for all type generators in the type-sync system
+ */
+
+import { ResolvedSchema } from '../types/schema';
+import { GenerationContext, GeneratedType } from '../types/core';
+
+/**
+ * Base interface for all type generators
+ */
+export interface TypeGenerator {
+  /**
+   * Generate TypeScript types from a schema
+   */
+  generate(schema: ResolvedSchema, context: GenerationContext): GeneratedType;
+  
+  /**
+   * Check if this generator can handle the given schema
+   */
+  canHandle(schema: ResolvedSchema): boolean;
+  
+  /**
+   * Get the priority of this generator (higher = more priority)
+   */
+  getPriority(): number;
+  
+  /**
+   * Get generator metadata
+   */
+  getMetadata(): GeneratorMetadata;
+}
+
+/**
+ * Generator metadata
+ */
+export interface GeneratorMetadata {
+  name: string;
+  version: string;
+  description: string;
+  supportedTypes: string[];
+  supportedFormats: string[];
+}
+
+/**
+ * Type generation options
+ */
+export interface TypeGenerationOptions {
+  useStrictTypes: boolean;
+  useOptionalChaining: boolean;
+  useNullishCoalescing: boolean;
+  namingConvention: 'camelCase' | 'snake_case' | 'PascalCase';
+  typePrefix?: string;
+  typeSuffix?: string;
+  customTypeMappings?: Record<string, string>;
+  preserveComments: boolean;
+}
+
+/**
+ * Abstract base type generator implementation
+ */
+export abstract class BaseTypeGenerator implements TypeGenerator {
+  protected options: TypeGenerationOptions;
+  
+  constructor(options: TypeGenerationOptions) {
+    this.options = options;
+  }
+  
+  abstract generate(schema: ResolvedSchema, context: GenerationContext): GeneratedType;
+  abstract canHandle(schema: ResolvedSchema): boolean;
+  abstract getPriority(): number;
+  abstract getMetadata(): GeneratorMetadata;
+  
+  /**
+   * Common utility methods for type generation
+   */
+  
+  /**
+   * Convert a name to the configured naming convention
+   */
+  protected convertName(name: string): string {
+    // Convert square brackets to angle brackets for TypeScript generics
+    let convertedName = name.replace(/\[/g, '<').replace(/\]/g, '>');
+    
+    // Replace hyphens and other invalid characters with underscores
+    convertedName = convertedName.replace(/[-\s]+/g, '_');
+    
+    switch (this.options.namingConvention) {
+      case 'camelCase':
+        return this.toCamelCase(convertedName);
+      case 'snake_case':
+        return this.toSnakeCase(convertedName);
+      case 'PascalCase':
+        return this.toPascalCase(convertedName);
+      default:
+        return convertedName;
+    }
+  }
+  
+  /**
+   * Add prefix and suffix to type name
+   */
+  protected formatTypeName(name: string): string {
+    let formattedName = this.convertName(name);
+    
+    if (this.options.typePrefix) {
+      formattedName = this.options.typePrefix + formattedName;
+    }
+    
+    if (this.options.typeSuffix) {
+      formattedName = formattedName + this.options.typeSuffix;
+    }
+    
+    return formattedName;
+  }
+  
+  /**
+   * Generate TypeScript type from OpenAPI schema type
+   */
+  protected mapSchemaTypeToTypeScript(type: string | string[], format?: string): string {
+    const types = Array.isArray(type) ? type : [type];
+    
+    // Handle custom type mappings first
+    if (this.options.customTypeMappings) {
+      for (const t of types) {
+        if (this.options.customTypeMappings[t]) {
+          return this.options.customTypeMappings[t];
+        }
+      }
+    }
+    
+    // Handle format-specific mappings
+    if (format) {
+      const formatMapping = this.getFormatMapping(format);
+      if (formatMapping) {
+        return formatMapping;
+      }
+    }
+    
+    // Handle basic type mappings
+    const typeMapping = types.map(t => this.getBasicTypeMapping(t)).filter(Boolean);
+    
+    if (typeMapping.length === 0) {
+      return 'unknown';
+    }
+    
+    if (typeMapping.length === 1) {
+      return typeMapping[0]!;
+    }
+    
+    return typeMapping.join(' | ');
+  }
+  
+  /**
+   * Get format-specific type mapping
+   */
+  private getFormatMapping(format: string): string | undefined {
+    const formatMappings: Record<string, string> = {
+      'date': 'string',
+      'date-time': 'string',
+      'time': 'string',
+      'email': 'string',
+      'hostname': 'string',
+      'ipv4': 'string',
+      'ipv6': 'string',
+      'uri': 'string',
+      'uri-reference': 'string',
+      'uri-template': 'string',
+      'url': 'string',
+      'uuid': 'string',
+      'password': 'string',
+      'byte': 'string',
+      'binary': 'string',
+      'int32': 'number',
+      'int64': 'number',
+      'float': 'number',
+      'double': 'number',
+      'decimal': 'number',
+    };
+    
+    return formatMappings[format];
+  }
+  
+  /**
+   * Get basic type mapping
+   */
+  private getBasicTypeMapping(type: string): string | undefined {
+    const typeMappings: Record<string, string> = {
+      'string': 'string',
+      'number': 'number',
+      'integer': 'number',
+      'boolean': 'boolean',
+      'array': 'unknown[]',
+      'object': 'Record<string, unknown>',
+      'null': 'null',
+    };
+    
+    return typeMappings[type];
+  }
+  
+  /**
+   * Generate JSDoc comment from description
+   */
+  protected generateComment(description?: string, example?: unknown): string {
+    if (!description && !example) {
+      return '';
+    }
+    
+    const lines: string[] = ['/**'];
+    
+    if (description) {
+      lines.push(` * ${description}`);
+    }
+    
+    if (example !== undefined) {
+      lines.push(` * @example ${JSON.stringify(example)}`);
+    }
+    
+    lines.push(' */');
+    
+    return lines.join('\n');
+  }
+  
+  /**
+   * Check if a property is optional
+   */
+  protected isOptional(required?: string[], propertyName?: string): boolean {
+    if (!required || !propertyName) {
+      return true;
+    }
+    
+    return !required.includes(propertyName);
+  }
+  
+  /**
+   * Generate optional type wrapper
+   */
+  protected wrapOptional(type: string, isOptional: boolean): string {
+    if (!isOptional) {
+      return type;
+    }
+    
+    if (this.options.useNullishCoalescing) {
+      return `${type} | undefined`;
+    }
+    
+    return `${type} | null | undefined`;
+  }
+  
+  /**
+   * Convert to camelCase
+   */
+  private toCamelCase(str: string): string {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  }
+  
+  /**
+   * Convert to snake_case
+   */
+  private toSnakeCase(str: string): string {
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+  }
+  
+  /**
+   * Convert to PascalCase
+   */
+  private toPascalCase(str: string): string {
+    return str.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase());
+  }
+  
+  /**
+   * Extract type name from schema reference
+   */
+  protected extractTypeNameFromRef(ref: string): string {
+    const parts = ref.split('/');
+    return parts[parts.length - 1] || 'Unknown';
+  }
+  
+  /**
+   * Generate imports for dependencies
+   */
+  protected generateImports(): string {
+    // Don't generate imports if types are in the same file
+    // This will be handled by the main generator
+    return '';
+  }
+}
