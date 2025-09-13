@@ -39,7 +39,7 @@ jobs:
           curl -o perf-test-data/large-schema-2.json https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/googleapis.com/2023-01-01.json || echo "Failed to download schema 2"
 
           # Use local FastAPI schema as fallback
-          cp local-test/react-app/openapi-schema.json perf-test-data/fallback-schema.json
+          cp examples/example-generated/react-app/openapi-schema.json perf-test-data/fallback-schema.json
 
       - name: Run performance tests
         run: |
@@ -71,7 +71,7 @@ jobs:
 
           # Run with memory monitoring
           /usr/bin/time -v npx type-sync generate \
-            --file local-test/react-app/openapi-schema.json \
+            --file examples/example-generated/react-app/openapi-schema.json \
             --output ./memory-test-output \
             --quiet 2>&1 | grep -E "(Maximum resident set size|User time|System time)" || true
 
@@ -82,7 +82,7 @@ jobs:
           # Test multiple concurrent generations
           for i in {1..5}; do
             npx type-sync generate \
-              --file local-test/react-app/openapi-schema.json \
+              --file examples/example-generated/react-app/openapi-schema.json \
               --output "./concurrent-test-$i" \
               --quiet &
           done
