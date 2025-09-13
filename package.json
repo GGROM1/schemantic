@@ -60,6 +60,7 @@
     "url": "https://github.com/Cstannahill/type-sync/issues"
   },
   "devDependencies": {
+    "@eslint/js": "^9.35.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.3",
     "@typescript-eslint/eslint-plugin": "^8.43.0",
@@ -83,7 +84,7 @@
   ],
   "dependencies": {
     "axios": "^1.12.1",
-    "commander": "^14.0.1",
-    "chokidar": "^4.0.1"
+    "chokidar": "^4.0.1",
+    "commander": "^14.0.1"
   }
 }

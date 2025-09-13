@@ -6,7 +6,13 @@
  */
 
 import { Command } from "commander";
-import { TypeSyncConfig, DEFAULT_CONFIG } from "../types/core";
+import {
+  TypeSyncConfig,
+  DEFAULT_CONFIG,
+  GenerationResult,
+  GenerationError,
+  GenerationWarning,
+} from "../types/core";
 import { TypeSync } from "../core/typesync";
 import { PluginLoader } from "../plugins";
 import { getBuiltinPlugins } from "../plugins/builtin";
@@ -500,7 +506,7 @@ export class TypeSyncCli {
   /**
    * Output generation results
    */
-  private outputResults(result: any, options: CliOptions): void {
+  private outputResults(result: GenerationResult, options: CliOptions): void {
     if (options.quiet) {
       return;
     }
@@ -524,7 +530,14 @@ export class TypeSyncCli {
   /**
    * Output validation results
    */
-  private outputValidationResults(result: any, options: CliOptions): void {
+  private outputValidationResults(
+    result: {
+      isValid: boolean;
+      errors: GenerationError[];
+      warnings: GenerationWarning[];
+    },
+    options: CliOptions
+  ): void {
     if (options.quiet) {
       return;
     }
@@ -535,14 +548,20 @@ export class TypeSyncCli {
       console.log("❌ Schema validation failed!");
       console.log(`🚨 Errors: ${result.errors.length}`);
       for (const error of result.errors) {
-        console.log(`  - ${error.message} (${error.path})`);
+        console.log(
+          `  - ${error.message}${error.source ? ` (${error.source})` : ""}`
+        );
       }
     }
 
     if (result.warnings.length > 0) {
       console.log(`⚠️  Warnings: ${result.warnings.length}`);
       for (const warning of result.warnings) {
-        console.log(`  - ${warning.message} (${warning.path})`);
+        console.log(
+          `  - ${warning.message}${
+            warning.source ? ` (${warning.source})` : ""
+          }`
+        );
       }
     }
   }

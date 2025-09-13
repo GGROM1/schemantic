@@ -5,7 +5,7 @@
 
 import * as fs from "fs/promises";
 import * as path from "path";
-import { OpenAPISchema } from "../types/openapi";
+import { OpenAPISchema, OpenAPISchemaObject } from "../types/openapi";
 import { ResolvedSchema } from "../types/schema";
 import {
   TypeSyncConfig,
@@ -127,8 +127,8 @@ export class TypeSync {
    */
   async validate(): Promise<{
     isValid: boolean;
-    errors: any[];
-    warnings: any[];
+    errors: GenerationError[];
+    warnings: GenerationWarning[];
   }> {
     try {
       const schema = await this.loadSchema();
@@ -156,7 +156,7 @@ export class TypeSync {
    * Load schema from various sources
    */
   private async loadSchema(): Promise<OpenAPISchema> {
-    let input: any = {};
+    let input: { url?: string; filePath?: string; data?: OpenAPISchema } = {};
 
     if (this.config.schemaUrl) {
       input.url = this.config.schemaUrl;
@@ -199,7 +199,7 @@ export class TypeSync {
     for (const [name, schemaRef] of Object.entries(schema.components.schemas)) {
       if (typeof schemaRef === "object" && schemaRef !== null) {
         // Stamp a stable generated type name to match $ref terminal name
-        (schemaRef as any)._generatedTypeName = name;
+        (schemaRef as OpenAPISchemaObject)._generatedTypeName = name;
         this.resolvedSchemas.set(`#/components/schemas/${name}`, schemaRef);
       }
     }
@@ -523,7 +523,7 @@ export * from './index';
         dependencies: [],
         size: Buffer.byteLength(hooks.content, "utf-8"),
       };
-    } catch (e) {
+    } catch {
       // Non-fatal: skip hooks on error
       return undefined;
     }

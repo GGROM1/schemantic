@@ -7,6 +7,12 @@ import {
   OpenAPISchema,
   OpenAPIPaths,
   OpenAPIOperation,
+  OpenAPIPathItem,
+  OpenAPIParameter,
+  OpenAPIRef,
+  OpenAPIRequestBody,
+  OpenAPIResponses,
+  OpenAPISchemaObject,
 } from "../types/openapi";
 import {
   GenerationContext,
@@ -59,7 +65,7 @@ export class HookGenerator {
     for (const [path, pathItem] of Object.entries(paths)) {
       if (!pathItem || typeof pathItem !== "object") continue;
       for (const method of operations) {
-        const operation = (pathItem as any)[method] as
+        const operation = (pathItem as OpenAPIPathItem)[method] as
           | OpenAPIOperation
           | undefined;
         if (!operation) continue;
@@ -103,10 +109,17 @@ export class HookGenerator {
     return endpoint;
   }
 
-  private extractParameters(parameters: any[]): GeneratedParameter[] {
+  private extractParameters(
+    parameters: (OpenAPIParameter | OpenAPIRef)[]
+  ): GeneratedParameter[] {
     const out: GeneratedParameter[] = [];
     for (const param of parameters) {
       if (!param || typeof param !== "object") continue;
+
+      // Skip refs for now - parameter refs are less common
+      if ("$ref" in param) continue;
+
+      // Handle direct OpenAPIParameter
       const type = this.extractSchemaType(param.schema);
       const isRequired = !!param.required;
       out.push({
@@ -115,29 +128,28 @@ export class HookGenerator {
         isOptional: !isRequired,
         isRequired,
         location: param.in,
-        description: param.description,
+        ...(param.description && { description: param.description }),
       });
     }
     return out;
   }
 
   private extractRequestBody(
-    requestBody: any
+    requestBody: OpenAPIRequestBody | OpenAPIRef | undefined
   ): GeneratedRequestBody | undefined {
     if (!requestBody || typeof requestBody !== "object") return undefined;
 
-    if (requestBody.$ref) {
+    if ("$ref" in requestBody) {
       const resolved = this.context.schemaResolver(requestBody.$ref);
       if (resolved) {
         return {
           type: this.extractSchemaType(resolved),
-          isOptional: !requestBody.required,
-          description: requestBody.description,
+          isOptional: true, // Can't determine from ref
         };
       }
     }
 
-    if (requestBody.content) {
+    if ("content" in requestBody && requestBody.content) {
       const ct = Object.keys(requestBody.content)[0];
       if (!ct) return undefined;
       const media = requestBody.content[ct];
@@ -146,48 +158,50 @@ export class HookGenerator {
           type: this.extractSchemaType(media.schema),
           isOptional: !requestBody.required,
           contentType: ct,
-          description: requestBody.description,
+          ...(requestBody.description && {
+            description: requestBody.description,
+          }),
         };
       }
     }
     return undefined;
   }
 
-  private extractResponses(responses: any): GeneratedResponse[] {
+  private extractResponses(responses: OpenAPIResponses): GeneratedResponse[] {
     const out: GeneratedResponse[] = [];
     for (const [statusCode, response] of Object.entries(responses)) {
       if (!response || typeof response !== "object") continue;
-      const r: any = response;
-      if (r.$ref) {
-        const resolved = this.context.schemaResolver(r.$ref);
+
+      if ("$ref" in response) {
+        const resolved = this.context.schemaResolver(response.$ref);
         if (resolved) {
           out.push({
             statusCode,
             type: this.extractSchemaType(resolved),
             isOptional: false,
-            description: r.description,
           });
         }
         continue;
       }
-      if (r.content) {
-        const ct = Object.keys(r.content)[0];
+
+      if ("content" in response && response.content) {
+        const ct = Object.keys(response.content)[0];
         if (!ct) {
           out.push({
             statusCode,
             type: "void",
             isOptional: false,
-            description: r.description,
+            ...(response.description && { description: response.description }),
           });
           continue;
         }
-        const media = r.content[ct];
+        const media = response.content[ct];
         if (media?.schema) {
           out.push({
             statusCode,
             type: this.extractSchemaType(media.schema),
             isOptional: false,
-            description: r.description,
+            ...(response.description && { description: response.description }),
           });
         }
       } else {
@@ -195,7 +209,7 @@ export class HookGenerator {
           statusCode,
           type: "void",
           isOptional: false,
-          description: r.description,
+          ...(response.description && { description: response.description }),
         });
       }
     }
@@ -208,16 +222,22 @@ export class HookGenerator {
     return responses.map((r) => r.type).join(" | ");
   }
 
-  private extractSchemaType(schema: any): string {
-    if (schema?.$ref) {
+  private extractSchemaType(
+    schema: OpenAPISchemaObject | OpenAPIRef | undefined
+  ): string {
+    if (!schema) return "unknown";
+
+    if ("$ref" in schema && typeof schema.$ref === "string") {
       const name = this.extractTypeNameFromRef(schema.$ref);
       return this.formatTypeName(name);
     }
-    if (schema?.type)
+
+    if ("type" in schema && schema.type)
       return this.mapSchemaTypeToTypeScript(schema.type, schema.format);
-    if (schema?.enum)
-      return schema.enum.map((v: any) => JSON.stringify(v)).join(" | ");
-    if (schema?.const !== undefined) return JSON.stringify(schema.const);
+    if ("enum" in schema && schema.enum)
+      return schema.enum.map((v: unknown) => JSON.stringify(v)).join(" | ");
+    if ("const" in schema && schema.const !== undefined)
+      return JSON.stringify(schema.const);
     return "unknown";
   }
 

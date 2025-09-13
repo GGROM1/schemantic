@@ -7,6 +7,12 @@ import {
   OpenAPISchema,
   OpenAPIPaths,
   OpenAPIOperation,
+  OpenAPIParameter,
+  OpenAPIRef,
+  OpenAPIRequestBody,
+  OpenAPIResponses,
+  OpenAPIResponse,
+  OpenAPISchemaObject,
 } from "../types/openapi";
 import {
   GenerationContext,
@@ -151,13 +157,18 @@ export class ApiClientGenerator {
    * Extract parameters from operation
    */
   private extractParameters(
-    parameters: any[],
+    parameters: (OpenAPIParameter | OpenAPIRef)[],
     context: GenerationContext
   ): GeneratedParameter[] {
     const validParameters: GeneratedParameter[] = [];
 
     for (const param of parameters) {
       if (typeof param !== "object" || param === null) {
+        continue;
+      }
+
+      // Skip $ref parameters for now (would need to be resolved)
+      if ("$ref" in param) {
         continue;
       }
 
@@ -170,7 +181,7 @@ export class ApiClientGenerator {
         isOptional: !isRequired,
         isRequired,
         location: param.in,
-        description: param.description,
+        ...(param.description && { description: param.description }),
       });
     }
 
@@ -181,7 +192,7 @@ export class ApiClientGenerator {
    * Extract request body from operation
    */
   private extractRequestBody(
-    requestBody: any,
+    requestBody: OpenAPIRequestBody | OpenAPIRef | undefined,
     context: GenerationContext
   ): GeneratedRequestBody | undefined {
     if (!requestBody || typeof requestBody !== "object") {
@@ -189,20 +200,20 @@ export class ApiClientGenerator {
     }
 
     // Handle reference
-    if (requestBody.$ref) {
+    if ("$ref" in requestBody) {
       const resolvedSchema = context.schemaResolver(requestBody.$ref);
       if (resolvedSchema) {
         const type = this.extractSchemaType(resolvedSchema, context);
         return {
           type,
-          isOptional: !requestBody.required,
-          description: requestBody.description,
+          isOptional: true, // Refs don't have required field directly
         };
       }
+      return undefined;
     }
 
     // Handle inline request body
-    if (requestBody.content) {
+    if ("content" in requestBody && requestBody.content) {
       const contentType = Object.keys(requestBody.content)[0];
       if (!contentType) return undefined;
       const mediaType = requestBody.content[contentType];
@@ -212,7 +223,9 @@ export class ApiClientGenerator {
         const body: GeneratedRequestBody = {
           type,
           isOptional: !requestBody.required,
-          description: requestBody.description,
+          ...(requestBody.description && {
+            description: requestBody.description,
+          }),
         };
 
         if (contentType) {
@@ -230,7 +243,7 @@ export class ApiClientGenerator {
    * Extract responses from operation
    */
   private extractResponses(
-    responses: any,
+    responses: OpenAPIResponses,
     context: GenerationContext
   ): GeneratedResponse[] {
     const responseList: GeneratedResponse[] = [];
@@ -240,10 +253,10 @@ export class ApiClientGenerator {
         continue;
       }
 
-      const responseObj = response as any; // Type assertion for OpenAPI response object
+      const responseObj = response as OpenAPIResponse | OpenAPIRef;
 
       // Handle reference
-      if (responseObj.$ref) {
+      if ("$ref" in responseObj) {
         const resolvedSchema = context.schemaResolver(responseObj.$ref);
         if (resolvedSchema) {
           const type = this.extractSchemaType(resolvedSchema, context);
@@ -251,14 +264,16 @@ export class ApiClientGenerator {
             statusCode,
             type,
             isOptional: false,
-            description: responseObj.description,
+            description:
+              ("description" in resolvedSchema && resolvedSchema.description) ||
+              "",
           });
         }
         continue;
       }
 
       // Handle inline response
-      if (responseObj.content) {
+      if ("content" in responseObj && responseObj.content) {
         const contentType = Object.keys(responseObj.content)[0];
         if (!contentType) {
           // Response without content type
@@ -266,7 +281,7 @@ export class ApiClientGenerator {
             statusCode,
             type: "void",
             isOptional: false,
-            description: responseObj.description,
+            description: responseObj.description || "",
           });
           continue;
         }
@@ -278,7 +293,7 @@ export class ApiClientGenerator {
             statusCode,
             type,
             isOptional: false,
-            description: responseObj.description,
+            description: responseObj.description || "",
           });
         }
       } else {
@@ -287,7 +302,7 @@ export class ApiClientGenerator {
           statusCode,
           type: "void",
           isOptional: false,
-          description: responseObj.description,
+          description: responseObj.description || "",
         });
       }
     }
@@ -316,7 +331,7 @@ export class ApiClientGenerator {
    * Extract parameter type from schema
    */
   private extractParameterType(
-    schema: any,
+    schema: OpenAPISchemaObject | OpenAPIRef | undefined,
     context: GenerationContext
   ): string {
     if (!schema) {
@@ -329,26 +344,33 @@ export class ApiClientGenerator {
   /**
    * Extract schema type
    */
-  private extractSchemaType(schema: any, context: GenerationContext): string {
+  private extractSchemaType(
+    schema: OpenAPISchemaObject | OpenAPIRef,
+    context: GenerationContext
+  ): string {
     // Handle reference
-    if (schema.$ref) {
-      const refType = this.extractTypeNameFromRef(schema.$ref);
-      // Normalize and apply prefix/suffix to match type generator output
-      return this.formatTypeName(refType, context);
+    if ("$ref" in schema) {
+      if (typeof schema.$ref === "string") {
+        const refType = this.extractTypeNameFromRef(schema.$ref);
+        // Normalize and apply prefix/suffix to match type generator output
+        return this.formatTypeName(refType, context);
+      }
+      // $ref exists but isn't a string; cannot extract a type name
+      return "unknown";
     }
 
     // Handle basic types
-    if (schema.type) {
+    if ("type" in schema && schema.type) {
       return this.mapSchemaTypeToTypeScript(schema.type, schema.format);
     }
 
     // Handle enums
-    if (schema.enum) {
-      return schema.enum.map((val: any) => JSON.stringify(val)).join(" | ");
+    if ("enum" in schema && schema.enum) {
+      return schema.enum.map((val: unknown) => JSON.stringify(val)).join(" | ");
     }
 
     // Handle const
-    if (schema.const !== undefined) {
+    if ("const" in schema && schema.const !== undefined) {
       return JSON.stringify(schema.const);
     }
 
