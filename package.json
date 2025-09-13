@@ -4,6 +4,7 @@
   "description": "A fully typed, extensible TypeScript type generator for FastAPI OpenAPI schemas",
   "main": "dist/index.js",
   "module": "dist/index.js",
+  "type": "module",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
@@ -22,8 +23,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint": "eslint -c eslint.config.mjs src/**/*.ts",
+    "lint:fix": "eslint -c eslint.config.mjs src/**/*.ts --fix",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build && npm test"
   },

@@ -1,0 +1,74 @@
+{
+  "openapi": "3.0.2",
+  "info": { "title": "Inheritance API", "version": "1.0" },
+  "paths": {
+    "/pets/{pet_id}": {
+      "get": {
+        "summary": "Get pet",
+        "parameters": [
+          {
+            "name": "pet_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pet response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PetResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BasePet": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "age": { "type": "integer", "nullable": true }
+        },
+        "required": ["id", "name"]
+      },
+      "Dog": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BasePet" },
+          {
+            "type": "object",
+            "properties": {
+              "breed": { "type": "string" },
+              "trained": { "type": "boolean" }
+            },
+            "required": ["breed"]
+          }
+        ]
+      },
+      "Cat": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BasePet" },
+          {
+            "type": "object",
+            "properties": {
+              "color": { "type": "string" },
+              "indoor": { "type": "boolean" }
+            }
+          }
+        ]
+      },
+      "PetResponse": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Dog" },
+          { "$ref": "#/components/schemas/Cat" }
+        ],
+        "discriminator": { "propertyName": "id" }
+      }
+    }
+  }
+}

@@ -10,3 +10,4 @@ yarn.lock
 *.log
 .tgz
 test-output/
+package-lock.json

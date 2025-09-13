@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.2",
+  "info": { "title": "Nested Data API", "version": "1.0" },
+  "paths": {
+    "/reports": {
+      "get": {
+        "summary": "Get reports",
+        "responses": {
+          "200": {
+            "description": "Reports list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Report" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Report": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Entry" }
+          }
+        },
+        "required": ["id", "created_at", "entries"]
+      },
+      "Entry": {
+        "type": "object",
+        "properties": {
+          "value": { "type": "number" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "subentries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SubEntry" }
+          }
+        }
+      },
+      "SubEntry": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "data_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": { "type": "string", "format": "date-time" },
+                "value": { "type": "number" }
+              },
+              "required": ["timestamp", "value"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
