@@ -4,7 +4,6 @@
   "description": "A fully typed, extensible TypeScript type generator for FastAPI OpenAPI schemas",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "type": "module",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {

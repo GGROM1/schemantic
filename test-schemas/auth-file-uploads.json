@@ -1,0 +1,90 @@
+{
+  "openapi": "3.0.2",
+  "info": { "title": "Auth & Upload API", "version": "1.0" },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "User login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT Token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/upload": {
+      "post": {
+        "summary": "Upload file",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "description": { "type": "string" }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Upload success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FileUploadResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "password": { "type": "string" }
+        },
+        "required": ["username", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": { "token": { "type": "string" } },
+        "required": ["token"]
+      },
+      "FileUploadResponse": {
+        "type": "object",
+        "properties": {
+          "file_id": { "type": "string" },
+          "url": { "type": "string" }
+        },
+        "required": ["file_id", "url"]
+      }
+    }
+  }
+}

@@ -487,9 +487,13 @@ export class TypeSync {
     _generatedTypes: GeneratedType[],
     _generatedClients: GeneratedApiClient[]
   ): Promise<GeneratedFile> {
+    const clientFileBase = (
+      this.config.outputFileName || `api-client.ts`
+    ).replace(/\.ts$/, "");
     const content = `// Barrel exports for type-sync generated code
 export * from './types';
-export * from './index';
+export * from './${clientFileBase}';
+export * from './hooks';
 `;
 
     const filePath = path.join(this.config.outputDir, "barrel.ts");

@@ -23,7 +23,30 @@ export class ObjectTypeGenerator extends BaseTypeGenerator {
     const typeName = this.getTypeName(schema, context);
     const dependencies: string[] = [];
 
-    // Generate interface content
+    // If schema is a pure union (oneOf/anyOf) without own properties, emit a type alias
+    if (
+      (schema.oneOf && schema.oneOf.length > 0) ||
+      (schema.anyOf && schema.anyOf.length > 0)
+    ) {
+      const unionSchemas = [...(schema.oneOf || []), ...(schema.anyOf || [])];
+      const unionTypes = unionSchemas.map((s: ResolvedSchema) =>
+        this.generatePropertyType(s, context, dependencies)
+      );
+      const content = `export type ${typeName} = ${unionTypes.join(" | ")};\n`;
+      const imports = this.generateImports();
+      return {
+        name: typeName,
+        content: imports + content,
+        dependencies,
+        exports: [typeName],
+        isInterface: false,
+        isEnum: false,
+        isUnion: true,
+        sourceSchema: schema,
+      };
+    }
+
+    // Generate interface content (supports allOf merging/extends)
     const content = this.generateInterface(schema, context, dependencies);
 
     // Generate imports
@@ -91,10 +114,55 @@ export class ObjectTypeGenerator extends BaseTypeGenerator {
       content += comment + "\n";
     }
 
-    content += `export interface ${typeName} {\n`;
+    // Support allOf inheritance: extract first $ref as base and merge inline object props
+    let extendsClause = "";
+    let workingSchema: ResolvedSchema = schema;
+    if (schema.allOf && schema.allOf.length > 0) {
+      let baseType: string | undefined;
+      const mergedProps: Record<string, ResolvedSchema> = {};
+      let mergedRequired: string[] | undefined;
 
-    if (schema.properties) {
-      const properties = this.generateProperties(schema, context, dependencies);
+      for (const s of schema.allOf) {
+        if ("$ref" in s && s.$ref) {
+          const baseName = this.extractTypeNameFromRef(s.$ref as string);
+          baseType = this.formatTypeName(baseName);
+          if (dependencies && baseType && !dependencies.includes(baseType)) {
+            dependencies.push(baseType);
+          }
+        } else if (isOpenAPISchemaObject(s)) {
+          if (s.properties) {
+            Object.assign(
+              mergedProps,
+              s.properties as Record<string, ResolvedSchema>
+            );
+          }
+          if (Array.isArray(s.required)) {
+            mergedRequired = [...(mergedRequired || []), ...s.required];
+          }
+        }
+      }
+
+      if (baseType) {
+        extendsClause = ` extends ${baseType}`;
+      }
+
+      if (Object.keys(mergedProps).length > 0) {
+        workingSchema = {
+          type: "object",
+          properties: mergedProps,
+          ...(mergedRequired ? { required: mergedRequired } : {}),
+        } as ResolvedSchema;
+      }
+    }
+
+    content += `export interface ${typeName}${extendsClause} {\n`;
+
+    if (isOpenAPISchemaObject(workingSchema) && workingSchema.properties) {
+      const properties = this.generateProperties(
+        workingSchema,
+        context,
+        dependencies
+      );
       content += properties;
     }
 
@@ -208,10 +276,58 @@ export class ObjectTypeGenerator extends BaseTypeGenerator {
 
     // Handle intersections (allOf)
     if (schema.allOf) {
+      // Prefer merging/extends at interface level; as a property type use intersection
       const intersectionTypes = schema.allOf.map((s: ResolvedSchema) =>
         this.generatePropertyType(s, context, dependencies)
       );
       return intersectionTypes.join(" & ");
+    }
+
+    // Handle object inline typing and dictionaries
+    if (schema.type === "object") {
+      const hasProps =
+        !!schema.properties && Object.keys(schema.properties!).length > 0;
+      if (hasProps) {
+        const lines: string[] = [];
+        for (const [propName, propSchema] of Object.entries(
+          schema.properties!
+        )) {
+          const isOpt = this.isOptional(schema.required, propName);
+          const t = this.generatePropertyType(
+            propSchema as ResolvedSchema,
+            context,
+            dependencies
+          );
+          const formatted = this.convertName(propName);
+          // When emitting inline object body, do not append undefined type inside the object; use '?' only
+          const propType = isOpt ? t : t;
+          lines.push(`${formatted}${isOpt ? "?" : ""}: ${propType};`);
+        }
+        return `{
+  ${lines.join("\n  ")}
+}`;
+      }
+
+      // Dictionary/object map via additionalProperties
+      if (schema.additionalProperties !== undefined) {
+        if (schema.additionalProperties === true) {
+          return "Record<string, unknown>";
+        }
+        if (
+          schema.additionalProperties &&
+          typeof schema.additionalProperties === "object"
+        ) {
+          const valueType = this.generatePropertyType(
+            schema.additionalProperties as ResolvedSchema,
+            context,
+            dependencies
+          );
+          return `Record<string, ${valueType}>`;
+        }
+      }
+
+      // Fallback for generic object
+      return "Record<string, unknown>";
     }
 
     // Handle basic types

@@ -219,7 +219,7 @@ export class ApiClientGenerator {
       const mediaType = requestBody.content[contentType];
 
       if (mediaType && mediaType.schema) {
-        const type = this.extractSchemaType(mediaType.schema, context);
+        let type = this.extractSchemaType(mediaType.schema, context);
         const body: GeneratedRequestBody = {
           type,
           isOptional: !requestBody.required,
@@ -357,6 +357,50 @@ export class ApiClientGenerator {
       }
       // $ref exists but isn't a string; cannot extract a type name
       return "unknown";
+    }
+
+    // Handle arrays
+    if ("type" in schema && schema.type === "array") {
+      const items = schema.items as
+        | OpenAPISchemaObject
+        | OpenAPIRef
+        | undefined;
+      const itemType = items
+        ? this.extractSchemaType(items, context)
+        : "unknown";
+      return `${itemType}[]`;
+    }
+
+    // Handle objects with properties or additionalProperties
+    if ("type" in schema && schema.type === "object") {
+      const hasProps =
+        !!schema.properties && Object.keys(schema.properties!).length > 0;
+      if (hasProps) {
+        // Prefer named types if nested refs exist; otherwise inline object type
+        const lines: string[] = [];
+        for (const [propName, propSchema] of Object.entries(
+          schema.properties!
+        )) {
+          const t = this.extractSchemaType(
+            propSchema as OpenAPISchemaObject | OpenAPIRef,
+            context
+          );
+          lines.push(`${propName}: ${t}`);
+        }
+        return `{ ${lines.join("; ")} }`;
+      }
+      if (schema.additionalProperties !== undefined) {
+        if (schema.additionalProperties === true)
+          return "Record<string, unknown>";
+        if (typeof schema.additionalProperties === "object") {
+          const vt = this.extractSchemaType(
+            schema.additionalProperties as OpenAPISchemaObject | OpenAPIRef,
+            context
+          );
+          return `Record<string, ${vt}>`;
+        }
+      }
+      return "Record<string, unknown>";
     }
 
     // Handle basic types
@@ -505,9 +549,15 @@ export class ApiClientGenerator {
 
     // Add request body
     if (endpoint.requestBody) {
-      const bodyParam = `body${endpoint.requestBody.isOptional ? "?" : ""}: ${
-        endpoint.requestBody.type
-      }`;
+      const isMultipart =
+        !!endpoint.requestBody.contentType &&
+        /^multipart\/form-data/i.test(endpoint.requestBody.contentType);
+      const bodyType = isMultipart
+        ? `${endpoint.requestBody.type} | FormData`
+        : endpoint.requestBody.type;
+      const bodyParam = `body${
+        endpoint.requestBody.isOptional ? "?" : ""
+      }: ${bodyType}`;
       params.push(bodyParam);
     }
 
@@ -596,9 +646,12 @@ export class ApiClientGenerator {
     options += "      method: '" + endpoint.method + "',\n";
     options += "      headers: {\n";
     options += "        ...this.config.headers,\n";
-
-    // Add content type for request body
-    if (endpoint.requestBody) {
+    // Add content type for request body only for JSON payloads
+    if (
+      endpoint.requestBody &&
+      endpoint.requestBody.contentType &&
+      /application\/json/i.test(endpoint.requestBody.contentType)
+    ) {
       options += "        'Content-Type': 'application/json',\n";
     }
 
@@ -607,7 +660,21 @@ export class ApiClientGenerator {
 
     // Add request body
     if (endpoint.requestBody) {
-      options += "      body: body ? JSON.stringify(body) : undefined,\n";
+      const isJson =
+        !!endpoint.requestBody.contentType &&
+        /application\/json/i.test(endpoint.requestBody.contentType);
+      const isMultipart =
+        !!endpoint.requestBody.contentType &&
+        /^multipart\/form-data/i.test(endpoint.requestBody.contentType);
+      if (isJson) {
+        options +=
+          "      body: body !== undefined ? JSON.stringify(body) : undefined,\n";
+      } else if (isMultipart) {
+        options +=
+          "      body: (body instanceof FormData ? body : (body !== undefined ? this.toFormData(body as any) : undefined)) as any,\n";
+      } else {
+        options += "      body: body as any,\n";
+      }
     }
 
     options += "      ...options,\n";
@@ -620,34 +687,19 @@ export class ApiClientGenerator {
    * Generate fetch call
    */
   private generateFetchCall(_endpoint: GeneratedEndpoint): string {
-    let fetchCall =
-      "    const response = await fetch(url.toString(), requestOptions);\n";
-    fetchCall += "\n";
-    fetchCall += "    if (!response.ok) {\n";
-    fetchCall += "      throw new ApiClientError(\n";
-    fetchCall +=
-      "        'Request failed: ' + response.status + ' ' + response.statusText,\n";
-    fetchCall += "        response.status,\n";
-    fetchCall += "        response\n";
-    fetchCall += "      );\n";
-    fetchCall += "    }\n";
-
-    return fetchCall;
+    // Delegate to typed request<T> with retry
+    return "";
   }
 
   /**
    * Generate response handling
    */
   private generateResponseHandling(endpoint: GeneratedEndpoint): string {
-    let handling = "";
-
+    // Use request helper for both void and typed responses
     if (endpoint.returnType === "void") {
-      handling += "    return;\n";
-    } else {
-      handling += "    return response.json();\n";
+      return "    await this.request<void>(url.toString(), requestOptions);\n    return;\n";
     }
-
-    return handling;
+    return `    return this.request<${endpoint.returnType}>(url.toString(), requestOptions);\n`;
   }
 
   /**
@@ -663,6 +715,71 @@ export class ApiClientGenerator {
       "      }\n" +
       "      return String(value);\n" +
       "    });\n" +
+      "  }\n\n" +
+      "  private toFormData(input: any): FormData {\n" +
+      "    const form = new FormData();\n" +
+      "    if (input && typeof input === 'object') {\n" +
+      "      for (const [key, value] of Object.entries(input)) {\n" +
+      "        if (value === undefined || value === null) continue;\n" +
+      "        if (value instanceof Blob || (typeof File !== 'undefined' && value instanceof File)) {\n" +
+      "          form.append(key, value as any);\n" +
+      "        } else if (Array.isArray(value)) {\n" +
+      "          for (const v of value) {\n" +
+      "            if (v instanceof Blob || (typeof File !== 'undefined' && v instanceof File)) form.append(key, v as any);\n" +
+      "            else if (typeof v === 'object') form.append(key, new Blob([JSON.stringify(v)], { type: 'application/json' }));\n" +
+      "            else form.append(key, String(v));\n" +
+      "          }\n" +
+      "        } else if (typeof value === 'object') {\n" +
+      "          form.append(key, new Blob([JSON.stringify(value)], { type: 'application/json' }));\n" +
+      "        } else {\n" +
+      "          form.append(key, String(value));\n" +
+      "        }\n" +
+      "      }\n" +
+      "    }\n" +
+      "    return form;\n" +
+      "  }\n\n" +
+      "  private async request<T>(url: string, options: RequestInit): Promise<T> {\n" +
+      "    let lastError: unknown;\n" +
+      "    const retries = this.config.retries ?? 0;\n" +
+      "    const delayMs = this.config.retryDelay ?? 0;\n" +
+      "    for (let attempt = 0; attempt <= retries; attempt++) {\n" +
+      "      try {\n" +
+      "        const controller = new AbortController();\n" +
+      "        const timeout = this.config.timeout ?? 0;\n" +
+      "        const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : undefined;\n" +
+      "        // Link external AbortSignal if provided\n" +
+      "        if (options.signal) {\n" +
+      "          const ext = options.signal;\n" +
+      "          if (ext.aborted) controller.abort();\n" +
+      "          else ext.addEventListener('abort', () => controller.abort(), { once: true });\n" +
+      "        }\n" +
+      "        const { signal: _omit, ...rest } = options as any;\n" +
+      "        const response = await fetch(url, { ...rest, signal: controller.signal });\n" +
+      "        if (timer) clearTimeout(timer);\n" +
+      "        if (!response.ok) {\n" +
+      "          throw new ApiClientError('Request failed: ' + response.status + ' ' + response.statusText, response.status, response);\n" +
+      "        }\n" +
+      "        if (response.status === 204 || options.method === 'HEAD') {\n" +
+      "          return undefined as unknown as T;\n" +
+      "        }\n" +
+      "        return (await response.json()) as T;\n" +
+      "      } catch (err) {\n" +
+      "        lastError = err;\n" +
+      "        if (attempt < retries && delayMs > 0) {\n" +
+      "          await new Promise((r) => setTimeout(r, delayMs));\n" +
+      "          continue;\n" +
+      "        }\n" +
+      "        throw lastError;\n" +
+      "      }\n" +
+      "    }\n" +
+      "    throw lastError as Error;\n" +
+      "  }\n\n" +
+      "  // Convenience helpers for bearer auth\n" +
+      "  public setAuthToken(token: string) {\n" +
+      "    this.config.headers = { ...(this.config.headers || {}), Authorization: `Bearer ${token}` };\n" +
+      "  }\n" +
+      "  public clearAuthToken() {\n" +
+      "    if (this.config.headers) delete (this.config.headers as any)['Authorization'];\n" +
       "  }"
     );
   }
@@ -717,9 +834,8 @@ export class ApiClientGenerator {
    * Extract type names from type string
    */
   private extractTypeNamesFromType(type: string): string[] {
-    // Simple extraction - in a real implementation, this would be more sophisticated
-    // Capture PascalCase and bracketed/generic-like names and underscores
-    const matches = type.match(/[A-Z][A-Za-z0-9_]*|[A-Za-z0-9_]+(?=\])/g);
+    // Capture PascalCase identifiers used as type names
+    const matches = type.match(/\b[A-Z][A-Za-z0-9_]*\b/g);
     return matches || [];
   }
 
@@ -791,20 +907,44 @@ export class ApiClientGenerator {
     method: string,
     _operation: OpenAPIOperation
   ): string {
-    const pathParts = path
-      .split("/")
-      .filter((part) => part && !part.startsWith("{"));
-    const methodPrefix = method.toLowerCase();
+    const tokens = path.split("/").filter(Boolean);
+    const nonParamSegments = tokens.filter((t) => !t.startsWith("{"));
+    const hasPathParams = tokens.some((t) => t.startsWith("{"));
+    const resource = nonParamSegments.length
+      ? nonParamSegments[nonParamSegments.length - 1]!
+      : path.replace(/[^a-zA-Z0-9]/g, "");
 
-    if (pathParts.length > 0) {
-      return `${methodPrefix}${pathParts
-        .map((part) => this.capitalize(part))
-        .join("")}`;
+    const singular = (name: string) => {
+      if (/ies$/i.test(name)) return name.replace(/ies$/i, "y");
+      if (/ses$/i.test(name)) return name.replace(/es$/i, "");
+      if (/s$/i.test(name)) return name.replace(/s$/i, "");
+      return name;
+    };
+
+    const lowerMethod = method.toLowerCase();
+    let opVerb = lowerMethod;
+
+    switch (lowerMethod) {
+      case "get":
+        opVerb = hasPathParams ? "get" : "list";
+        return `${opVerb}${this.capitalize(
+          hasPathParams ? singular(resource) : resource
+        )}`;
+      case "post":
+        opVerb = "create";
+        return `${opVerb}${this.capitalize(singular(resource))}`;
+      case "put":
+      case "patch":
+        opVerb = "update";
+        return `${opVerb}${this.capitalize(singular(resource))}`;
+      case "delete":
+        opVerb = "delete";
+        return `${opVerb}${this.capitalize(singular(resource))}`;
+      default:
+        return `${lowerMethod}${nonParamSegments
+          .map((part) => this.capitalize(part))
+          .join("")}`;
     }
-
-    return `${methodPrefix}${this.capitalize(
-      path.replace(/[^a-zA-Z0-9]/g, "")
-    )}`;
   }
 
   /**

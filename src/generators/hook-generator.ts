@@ -232,6 +232,45 @@ export class HookGenerator {
       return this.formatTypeName(name);
     }
 
+    // Arrays
+    if ("type" in schema && schema.type === "array") {
+      const items = schema.items as
+        | OpenAPISchemaObject
+        | OpenAPIRef
+        | undefined;
+      const itemType = items ? this.extractSchemaType(items) : "unknown";
+      return `${itemType}[]`;
+    }
+
+    // Objects with properties or additionalProperties
+    if ("type" in schema && schema.type === "object") {
+      const hasProps =
+        !!schema.properties && Object.keys(schema.properties!).length > 0;
+      if (hasProps) {
+        const lines: string[] = [];
+        for (const [propName, propSchema] of Object.entries(
+          schema.properties!
+        )) {
+          const t = this.extractSchemaType(
+            propSchema as OpenAPISchemaObject | OpenAPIRef
+          );
+          lines.push(`${propName}: ${t}`);
+        }
+        return `{ ${lines.join("; ")} }`;
+      }
+      if (schema.additionalProperties !== undefined) {
+        if (schema.additionalProperties === true)
+          return "Record<string, unknown>";
+        if (typeof schema.additionalProperties === "object") {
+          const vt = this.extractSchemaType(
+            schema.additionalProperties as OpenAPISchemaObject | OpenAPIRef
+          );
+          return `Record<string, ${vt}>`;
+        }
+      }
+      return "Record<string, unknown>";
+    }
+
     if ("type" in schema && schema.type)
       return this.mapSchemaTypeToTypeScript(schema.type, schema.format);
     if ("enum" in schema && schema.enum)
@@ -262,7 +301,7 @@ export class HookGenerator {
         ? `import { ${Array.from(typeNames).join(", ")} } from './types';\n`
         : "";
     const reactImport = `import { useCallback, useEffect, useMemo, useRef, useState } from 'react';\n`;
-    const clientImport = `import { ${clientName} } from './api-client';\n\n`;
+    const clientImport = `import { ${clientName}, ApiClientError } from './api-client';\n\n`;
     return typesImport + reactImport + clientImport;
   }
 
@@ -330,25 +369,30 @@ export class HookGenerator {
     orderedArgs.push("requestInit"); // options
 
     let code = "";
-    code += `  function ${hookName}(args${argsType === "void" ? "?" : ""}: ${
-      argsType === "void" ? "void | undefined" : argsType
-    }, requestInit?: RequestInit) {\n`;
+    const hasArgs = argsType !== "void";
+    const argsParamDecl = hasArgs ? `args: ${argsType}` : "";
+    code += `  function ${hookName}(${argsParamDecl}${
+      hasArgs ? ", " : ""
+    }requestInit?: RequestInit) {\n`;
     code += `    const [data, setData] = useState<${retType} | undefined>(undefined);\n`;
-    code += `    const [error, setError] = useState<unknown>(undefined);\n`;
+    code += `    const [error, setError] = useState<ApiClientError | undefined>(undefined);\n`;
     code += `    const [loading, setLoading] = useState(false);\n`;
-    code += `    const argsRef = useRef(args);\n`;
-    code += `    useEffect(() => { argsRef.current = args; }, [args]);\n`;
+    if (hasArgs) {
+      code += `    const argsRef = useRef(args);\n`;
+      code += `    useEffect(() => { argsRef.current = args; }, [args]);\n`;
+    }
     code += `    const fetcher = useCallback(async () => {\n`;
     code += `      setLoading(true); setError(undefined);\n`;
     code += `      try {\n`;
     code += `        const result = await client.${
       ep.functionName
     }(${orderedArgs.join(", ")});\n`;
-    code += `        setData(result as ${retType});\n`;
-    code += `      } catch (e) { setError(e); } finally { setLoading(false); }\n`;
-    code += `    }, [client, args, requestInit]);\n`;
+    code += `        setData(result);\n`;
+    code += `      } catch (e) { setError(e as ApiClientError); } finally { setLoading(false); }\n`;
+    code += `    }, [client${hasArgs ? ", args" : ""}, requestInit]);\n`;
     code += `    useEffect(() => { void fetcher(); }, [fetcher]);\n`;
-    code += `    return { data, error, loading, refetch: fetcher };\n`;
+    code += `    const refetch = useCallback(fetcher, [fetcher]);\n`;
+    code += `    return { data, error, loading, refetch };\n`;
     code += `  }\n`;
     return code;
   }
@@ -402,7 +446,7 @@ export class HookGenerator {
     let code = "";
     code += `  function ${hookName}() {\n`;
     code += `    const [data, setData] = useState<${retType} | undefined>(undefined);\n`;
-    code += `    const [error, setError] = useState<unknown>(undefined);\n`;
+    code += `    const [error, setError] = useState<ApiClientError | undefined>(undefined);\n`;
     code += `    const [loading, setLoading] = useState(false);\n`;
     code += `    const mutate = useCallback(async (payload${
       payloadType === "void" ? "?" : ""
@@ -414,9 +458,9 @@ export class HookGenerator {
     code += `        const result = await client.${
       ep.functionName
     }(${orderedArgs.join(", ")});\n`;
-    code += `        setData(result as ${retType});\n`;
-    code += `        return result as ${retType};\n`;
-    code += `      } catch (e) { setError(e); throw e; } finally { setLoading(false); }\n`;
+    code += `        setData(result);\n`;
+    code += `        return result;\n`;
+    code += `      } catch (e) { setError(e as ApiClientError); throw e; } finally { setLoading(false); }\n`;
     code += `    }, [client]);\n`;
     code += `    const reset = useCallback(() => { setData(undefined); setError(undefined); setLoading(false); }, []);\n`;
     code += `    return { mutate, data, error, loading, reset };\n`;
@@ -511,11 +555,38 @@ export class HookGenerator {
     method: string,
     _op: OpenAPIOperation
   ): string {
-    const parts = path.split("/").filter((p) => p && !p.startsWith("{"));
-    const m = method.toLowerCase();
-    return parts.length > 0
-      ? `${m}${parts.map((p) => this.capitalize(p)).join("")}`
-      : `${m}${this.capitalize(path.replace(/[^a-zA-Z0-9]/g, ""))}`;
+    const tokens = path.split("/").filter(Boolean);
+    const nonParamSegments = tokens.filter((t) => !t.startsWith("{"));
+    const hasPathParams = tokens.some((t) => t.startsWith("{"));
+    const resource = nonParamSegments.length
+      ? nonParamSegments[nonParamSegments.length - 1]!
+      : path.replace(/[^a-zA-Z0-9]/g, "");
+
+    const singular = (name: string) => {
+      if (/ies$/i.test(name)) return name.replace(/ies$/i, "y");
+      if (/ses$/i.test(name)) return name.replace(/es$/i, "");
+      if (/s$/i.test(name)) return name.replace(/s$/i, "");
+      return name;
+    };
+
+    const lowerMethod = method.toLowerCase();
+    switch (lowerMethod) {
+      case "get":
+        return `${hasPathParams ? "get" : "list"}${this.capitalize(
+          hasPathParams ? singular(resource) : resource
+        )}`;
+      case "post":
+        return `create${this.capitalize(singular(resource))}`;
+      case "put":
+      case "patch":
+        return `update${this.capitalize(singular(resource))}`;
+      case "delete":
+        return `delete${this.capitalize(singular(resource))}`;
+      default:
+        return `${lowerMethod}${nonParamSegments
+          .map((part) => this.capitalize(part))
+          .join("")}`;
+    }
   }
 
   private convertToFunctionName(operationId: string): string {

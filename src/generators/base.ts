@@ -255,16 +255,10 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
   /**
    * Generate optional type wrapper
    */
-  protected wrapOptional(type: string, isOptional: boolean): string {
-    if (!isOptional) {
-      return type;
-    }
-
-    if (this.options.useNullishCoalescing) {
-      return `${type} | undefined`;
-    }
-
-    return `${type} | null | undefined`;
+  protected wrapOptional(type: string, _isOptional: boolean): string {
+    // Optional properties in interfaces should rely on the '?' modifier,
+    // not a union with undefined/null. Keep the type unchanged here.
+    return type;
   }
 
   /**
