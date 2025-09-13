@@ -25,6 +25,7 @@ export { TypeSyncConfig, DEFAULT_CONFIG } from "../types/core";
 import { ParserFactory } from "../parsers";
 import { TypeGeneratorFactory } from "../generators";
 import { ApiClientGenerator } from "../generators/api-client-generator";
+import { HookGenerator } from "../generators/hook-generator";
 import { PluginManager } from "../plugins";
 
 /**
@@ -319,6 +320,12 @@ export class TypeSync {
       files.push(clientFile);
     }
 
+    // Generate hooks file (first-party) when enabled
+    if (this.config.generateHooks) {
+      const hooksFile = await this.generateHooksFile();
+      if (hooksFile) files.push(hooksFile);
+    }
+
     // Generate index file
     if (this.config.generateIndexFile) {
       const indexFile = await this.generateIndexFile(
@@ -384,8 +391,8 @@ export class TypeSync {
   private async generateClientFile(
     client: GeneratedApiClient
   ): Promise<GeneratedFile> {
-    const fileName =
-      this.config.outputFileName || `${client.name.toLowerCase()}.ts`;
+    // Default to a clean, predictable filename when not provided
+    const fileName = this.config.outputFileName || `api-client.ts`;
     const filePath = path.join(this.config.outputDir, fileName);
 
     await fs.writeFile(filePath, client.content, "utf-8");
@@ -440,12 +447,19 @@ export class TypeSync {
         e.endsWith("ApiClient")
       );
       if (valueExports.length > 0) {
+        // Use configured output file name or default 'api-client.ts'
+        const clientFileBase = (
+          this.config.outputFileName || `api-client.ts`
+        ).replace(/\.ts$/, "");
         exports.push(
-          `export { ${valueExports.join(
-            ", "
-          )} } from './${client.name.toLowerCase()}';`
+          `export { ${valueExports.join(", ")} } from './${clientFileBase}';`
         );
       }
+    }
+
+    // Export hooks if generated
+    if (this.config.generateHooks) {
+      exports.push(`export { createApiHooks } from './hooks';`);
     }
 
     const content = exports
@@ -489,6 +503,30 @@ export * from './index';
       dependencies: [],
       size: Buffer.byteLength(content, "utf-8"),
     };
+  }
+
+  /**
+   * Generate hooks file when enabled
+   */
+  private async generateHooksFile(): Promise<GeneratedFile | undefined> {
+    try {
+      const hookGen = new HookGenerator(this.createGenerationContext());
+      const hooks = hookGen.generate();
+      const filePath = path.join(this.config.outputDir, "hooks.ts");
+
+      await fs.writeFile(filePath, hooks.content, "utf-8");
+
+      return {
+        path: filePath,
+        content: hooks.content,
+        type: "hook",
+        dependencies: [],
+        size: Buffer.byteLength(hooks.content, "utf-8"),
+      };
+    } catch (e) {
+      // Non-fatal: skip hooks on error
+      return undefined;
+    }
   }
 
   /**

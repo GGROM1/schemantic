@@ -32,6 +32,9 @@ npx type-sync generate --url http://localhost:8000/openapi.json --output ./src/g
 # From file (local snapshot)
 npx type-sync generate --file ./schema.json --output ./src/generated
 
+# With React hooks
+npx type-sync generate --url http://localhost:8000/openapi.json --output ./src/generated --hooks
+
 # With custom options
 npx type-sync generate \
   --url http://localhost:8000/openapi.json \
@@ -40,6 +43,31 @@ npx type-sync generate \
   --prefix API \
   --suffix Type
 ```
+
+### Where to get your OpenAPI schema
+
+You can point Type-Sync at any reachable OpenAPI 3.x JSON. Common frameworks expose it at predictable URLs:
+
+- FastAPI (default): http://localhost:8000/openapi.json
+- ASP.NET Core (.NET): https://localhost:5001/swagger/v1/swagger.json
+
+Grab a local snapshot if you prefer generating from a file:
+
+```bash
+# FastAPI
+curl -s http://localhost:8000/openapi.json -o ./openapi-schema.json
+
+# ASP.NET Core (.NET)
+curl -k -s https://localhost:5001/swagger/v1/swagger.json -o ./openapi-schema.json
+
+# Generate from the snapshot
+npx type-sync generate --file ./openapi-schema.json --output ./src/generated --client --types
+```
+
+Notes:
+
+- On .NET dev certs (HTTPS), use `-k` with curl to skip certificate verification locally.
+- In ASP.NET Core, ensure Swagger is enabled in Development (AddSwaggerGen/UseSwagger) and the Swagger endpoint exposes `/swagger/v1/swagger.json`.
 
 ### Programmatic Usage
 
@@ -85,7 +113,7 @@ const config: TypeSyncConfig = {
   // Generation options
   generateTypes: true,
   generateApiClient: true,
-  generateHooks: false,
+  generateHooks: false, // Enable React hooks generation
 
   // TypeScript configuration
   useStrictTypes: true,
@@ -131,7 +159,7 @@ const config: TypeSyncConfig = {
 # Generation options
 --types                      Generate types only
 --client                     Generate API client only
---hooks                      Generate React hooks
+--hooks                      Generate React hooks factory
 
 # TypeScript options
 --strict                     Use strict TypeScript types (default: true)
@@ -190,6 +218,32 @@ export enum APIUserRole {
 ```
 
 ### API Client
+
+### React Hooks (optional)
+
+Enable hook generation with `--hooks` (CLI) or `generateHooks: true` (config). A `hooks.ts` file will export `createApiHooks(client)` which returns per-endpoint hooks.
+
+Example:
+
+```typescript
+import { ECommerceApiClient, createApiHooks } from "./src/generated";
+
+const client = new ECommerceApiClient({ baseUrl: "http://localhost:8000" });
+const { useGetProductsProductsGetQuery, useCreateOrderOrdersPostMutation } =
+  createApiHooks(client);
+
+function ProductsList() {
+  const { data, loading, error, refetch } = useGetProductsProductsGetQuery({
+    query: { page: 1, size: 20 },
+  });
+  // ... render
+}
+```
+
+Notes:
+
+- Hooks mirror the client method signatures: path params, query params, optional body (for mutations), then `RequestInit` as the last arg.
+- The generated `index.ts` re-exports `createApiHooks` when hooks are enabled.
 
 ```typescript
 // Actual name is derived from your API title; example below shows a generic name.

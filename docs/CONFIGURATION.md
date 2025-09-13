@@ -85,6 +85,24 @@ URL to the OpenAPI schema endpoint.
 schemaUrl: "http://localhost:8000/openapi.json";
 ```
 
+Common framework endpoints:
+
+- FastAPI (default): `http://localhost:8000/openapi.json`
+- ASP.NET Core (.NET): `https://localhost:5001/swagger/v1/swagger.json`
+
+Examples to fetch a local snapshot:
+
+```bash
+# FastAPI
+curl -s http://localhost:8000/openapi.json -o ./openapi-schema.json
+
+# ASP.NET Core (.NET) — dev certs
+curl -k -s https://localhost:5001/swagger/v1/swagger.json -o ./openapi-schema.json
+
+# Generate from file
+npx type-sync generate --file ./openapi-schema.json --output ./src/generated --client --types
+```
+
 #### `schemaFile`
 
 Path to a local OpenAPI schema file.
@@ -143,10 +161,31 @@ generateApiClient: true;
 
 #### `generateHooks`
 
-Whether to generate React hooks.
+Whether to generate React hooks factory.
 
 ```typescript
 generateHooks: false;
+```
+
+When enabled, generates `hooks.ts` with a `createApiHooks(client)` function that returns query and mutation hooks for each endpoint. The hooks follow React patterns:
+
+- Query hooks (GET methods): `useXxxQuery` with automatic fetching
+- Mutation hooks (POST/PUT/PATCH/DELETE): `useXxxMutation` with manual trigger
+
+Example usage:
+
+```typescript
+import { ECommerceApiClient, createApiHooks } from "./generated";
+
+const client = new ECommerceApiClient({ baseUrl: "http://localhost:8000" });
+const { useGetUsersUsersGetQuery, useCreateUserUsersPostMutation } =
+  createApiHooks(client);
+
+function UsersList() {
+  const { data, loading, error, refetch } = useGetUsersUsersGetQuery();
+  const { mutate: createUser } = useCreateUserUsersPostMutation();
+  // ... component logic
+}
 ```
 
 #### `generateQueries`
@@ -364,7 +403,7 @@ const config: TypeSyncConfig = {
 ```bash
 --types                      # Generate types only
 --client                     # Generate API client only
---hooks                      # Generate React hooks
+--hooks                      # Generate React hooks factory
 ```
 
 ### TypeScript Options

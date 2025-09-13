@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-09-13
+
 ### Added
+
+- First-party React hooks generator with `createApiHooks(client)` factory, enabled via `--hooks` or `generateHooks: true`.
+- Top-level exports for `HookGenerator` and `GeneratedHooksFile`.
+
+### Changed
+
+- Standardized generated client filename to `api-client.ts`; index now re-exports the client and hooks consistently.
+- Improved naming normalization for types and client methods (sanitize invalid characters; PascalCase for type identifiers).
+
+### Fixed
+
+- Corrected index re-export path for CLI to avoid `.js` resolution type issues.
+- Aligned generated hook call signatures with client method arity and parameter ordering.
+
+### Added
+
 - Initial release of Type-Sync
 - OpenAPI 3.0+ schema parsing and validation
 - TypeScript type generation from OpenAPI schemas
@@ -22,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full test coverage with Jest
 
 ### Features
+
 - **Schema Parsing**: Parse OpenAPI schemas from URLs, files, or data objects
 - **Type Generation**: Generate TypeScript interfaces, enums, and type aliases
 - **API Client Generation**: Generate fully typed API client classes
@@ -34,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TypeScript Strict Mode**: Full TypeScript strict mode support
 
 ### Technical Details
+
 - **Zero Dependencies**: No runtime dependencies on external libraries
 - **Modular Architecture**: Clean separation of concerns with extensible design
 - **Type Safety**: Comprehensive TypeScript types with no `any` usage
@@ -44,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2024-01-01
 
 ### Added
+
 - Initial release
 - Core functionality for OpenAPI schema parsing and TypeScript generation
 - Plugin system architecture
@@ -51,16 +72,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation and examples
 
 ### Changed
+
 - N/A (initial release)
 
 ### Deprecated
+
 - N/A (initial release)
 
 ### Removed
+
 - N/A (initial release)
 
 ### Fixed
+
 - N/A (initial release)
 
 ### Security
+
 - N/A (initial release)

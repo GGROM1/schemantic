@@ -22,8 +22,10 @@ import {
  * API client generator implementation
  */
 export class ApiClientGenerator {
-  constructor(_context: GenerationContext) {
-    // Configuration is accessed directly from context when needed
+  private context: GenerationContext;
+  constructor(context: GenerationContext) {
+    // Store context for access to config (namingConvention, etc.)
+    this.context = context;
   }
 
   /**
@@ -713,7 +715,14 @@ export class ApiClientGenerator {
    * Normalize a type name using the same rules as BaseTypeGenerator and apply prefix/suffix
    */
   private formatTypeName(name: string, context: GenerationContext): string {
-    const converted = this.convertName(name, context);
+    // Sanitize and convert to PascalCase for type identifiers
+    const sanitized = name
+      .replace(/\[/g, "<")
+      .replace(/\]/g, ">")
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_");
+    const converted = this.toPascalCase(sanitized);
     const { typePrefix, typeSuffix } = context.config;
     let result = converted;
     if (typePrefix) result = `${typePrefix}${result}`;
@@ -721,40 +730,10 @@ export class ApiClientGenerator {
     return result;
   }
 
-  /**
-   * Convert raw schema/ref name to configured naming convention
-   */
-  private convertName(name: string, context: GenerationContext): string {
-    // Convert square brackets to angle brackets for potential generics
-    let convertedName = name.replace(/\[/g, "<").replace(/\]/g, ">");
-    // Replace hyphens and spaces with underscores
-    convertedName = convertedName.replace(/[-\s]+/g, "_");
-
-    const convention = context.config.namingConvention || "camelCase";
-    switch (convention) {
-      case "camelCase":
-        return this.toCamelCase(convertedName);
-      case "snake_case":
-        return this.toSnakeCase(convertedName);
-      case "PascalCase":
-        return this.toPascalCase(convertedName);
-      default:
-        return convertedName;
-    }
-  }
-
-  private toCamelCase(str: string): string {
-    return str.replace(/_([a-z])/g, (_m, letter) => letter.toUpperCase());
-  }
-
-  private toSnakeCase(str: string): string {
-    return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-  }
-
   private toPascalCase(str: string): string {
-    return str.replace(/(^|_)([a-z])/g, (_m, _p, letter) =>
-      letter.toUpperCase()
-    );
+    if (!str) return str;
+    const tokens = str.split(/_+/).filter(Boolean);
+    return tokens.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join("");
   }
 
   /**
@@ -762,7 +741,21 @@ export class ApiClientGenerator {
    */
   private getClientName(schema: OpenAPISchema): string {
     if (schema.info && schema.info.title) {
-      return this.convertToFunctionName(schema.info.title) + "ApiClient";
+      const raw = schema.info.title.trim();
+      // Tokenize on non-alphanumerics, drop empty
+      const tokens = raw
+        .replace(/[^a-zA-Z0-9]+/g, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      // Avoid duplicate 'Api'
+      if (tokens.length > 1 && /^(api)$/i.test(tokens[tokens.length - 1]!)) {
+        tokens.pop();
+      }
+      const pascal = tokens
+        .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
+        .join("");
+      return (pascal || "Api") + "ApiClient";
     }
 
     return "ApiClient";
@@ -796,11 +789,45 @@ export class ApiClientGenerator {
    * Convert to function name
    */
   private convertToFunctionName(operationId: string): string {
-    return operationId
-      .replace(/[^a-zA-Z0-9]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "")
-      .toLowerCase();
+    // Normalize to tokens (split on non-alphanumerics)
+    const cleaned = operationId.replace(/[^a-zA-Z0-9]+/g, " ").trim();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "operation";
+
+    const toPascal = (tokens: string[]) =>
+      tokens.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join("");
+    const toCamel = (tokens: string[]) => {
+      const [first, ...rest] = tokens;
+      return (
+        first!.charAt(0).toLowerCase() +
+        first!.slice(1) +
+        rest.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join("")
+      );
+    };
+    const toSnake = (tokens: string[]) =>
+      tokens.map((t) => t.toLowerCase()).join("_");
+
+    const convention = this.context.config.namingConvention || "camelCase";
+    let name: string;
+    switch (convention) {
+      case "PascalCase":
+        name = toPascal(parts);
+        break;
+      case "snake_case":
+        name = toSnake(parts);
+        break;
+      case "camelCase":
+      default:
+        name = toCamel(parts);
+        break;
+    }
+
+    // Ensure it starts with a valid character
+    if (/^[0-9]/.test(name)) {
+      name = "op" + name;
+    }
+
+    return name;
   }
 
   /**

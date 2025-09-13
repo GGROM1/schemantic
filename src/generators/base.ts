@@ -3,8 +3,8 @@
  * Provides the foundation for all type generators in the type-sync system
  */
 
-import { ResolvedSchema } from '../types/schema';
-import { GenerationContext, GeneratedType } from '../types/core';
+import { ResolvedSchema } from "../types/schema";
+import { GenerationContext, GeneratedType } from "../types/core";
 
 /**
  * Base interface for all type generators
@@ -14,17 +14,17 @@ export interface TypeGenerator {
    * Generate TypeScript types from a schema
    */
   generate(schema: ResolvedSchema, context: GenerationContext): GeneratedType;
-  
+
   /**
    * Check if this generator can handle the given schema
    */
   canHandle(schema: ResolvedSchema): boolean;
-  
+
   /**
    * Get the priority of this generator (higher = more priority)
    */
   getPriority(): number;
-  
+
   /**
    * Get generator metadata
    */
@@ -49,7 +49,7 @@ export interface TypeGenerationOptions {
   useStrictTypes: boolean;
   useOptionalChaining: boolean;
   useNullishCoalescing: boolean;
-  namingConvention: 'camelCase' | 'snake_case' | 'PascalCase';
+  namingConvention: "camelCase" | "snake_case" | "PascalCase";
   typePrefix?: string;
   typeSuffix?: string;
   customTypeMappings?: Record<string, string>;
@@ -61,65 +61,83 @@ export interface TypeGenerationOptions {
  */
 export abstract class BaseTypeGenerator implements TypeGenerator {
   protected options: TypeGenerationOptions;
-  
+
   constructor(options: TypeGenerationOptions) {
     this.options = options;
   }
-  
-  abstract generate(schema: ResolvedSchema, context: GenerationContext): GeneratedType;
+
+  abstract generate(
+    schema: ResolvedSchema,
+    context: GenerationContext
+  ): GeneratedType;
   abstract canHandle(schema: ResolvedSchema): boolean;
   abstract getPriority(): number;
   abstract getMetadata(): GeneratorMetadata;
-  
+
   /**
    * Common utility methods for type generation
    */
-  
+
   /**
    * Convert a name to the configured naming convention
    */
   protected convertName(name: string): string {
-    // Convert square brackets to angle brackets for TypeScript generics
-    let convertedName = name.replace(/\[/g, '<').replace(/\]/g, '>');
-    
-    // Replace hyphens and other invalid characters with underscores
-    convertedName = convertedName.replace(/[-\s]+/g, '_');
-    
+    // Convert square brackets to angle brackets for TypeScript generics (kept for future generic support)
+    let convertedName = name.replace(/\[/g, "<").replace(/\]/g, ">");
+
+    // Replace any non-alphanumeric characters with underscores, collapse repeats, and trim
+    convertedName = convertedName
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_");
+
     switch (this.options.namingConvention) {
-      case 'camelCase':
+      case "camelCase":
         return this.toCamelCase(convertedName);
-      case 'snake_case':
+      case "snake_case":
         return this.toSnakeCase(convertedName);
-      case 'PascalCase':
+      case "PascalCase":
         return this.toPascalCase(convertedName);
       default:
         return convertedName;
     }
   }
-  
+
   /**
    * Add prefix and suffix to type name
    */
   protected formatTypeName(name: string): string {
-    let formattedName = this.convertName(name);
-    
+    // Sanitize to identifier-friendly tokens
+    let sanitized = name
+      .replace(/\[/g, "<")
+      .replace(/\]/g, ">")
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_");
+
+    // For type names, prefer PascalCase regardless of namingConvention
+    let formattedName = this.toPascalCase(sanitized);
+
     if (this.options.typePrefix) {
       formattedName = this.options.typePrefix + formattedName;
     }
-    
+
     if (this.options.typeSuffix) {
       formattedName = formattedName + this.options.typeSuffix;
     }
-    
+
     return formattedName;
   }
-  
+
   /**
    * Generate TypeScript type from OpenAPI schema type
    */
-  protected mapSchemaTypeToTypeScript(type: string | string[], format?: string): string {
+  protected mapSchemaTypeToTypeScript(
+    type: string | string[],
+    format?: string
+  ): string {
     const types = Array.isArray(type) ? type : [type];
-    
+
     // Handle custom type mappings first
     if (this.options.customTypeMappings) {
       for (const t of types) {
@@ -128,7 +146,7 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
         }
       }
     }
-    
+
     // Handle format-specific mappings
     if (format) {
       const formatMapping = this.getFormatMapping(format);
@@ -136,91 +154,93 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
         return formatMapping;
       }
     }
-    
+
     // Handle basic type mappings
-    const typeMapping = types.map(t => this.getBasicTypeMapping(t)).filter(Boolean);
-    
+    const typeMapping = types
+      .map((t) => this.getBasicTypeMapping(t))
+      .filter(Boolean);
+
     if (typeMapping.length === 0) {
-      return 'unknown';
+      return "unknown";
     }
-    
+
     if (typeMapping.length === 1) {
       return typeMapping[0]!;
     }
-    
-    return typeMapping.join(' | ');
+
+    return typeMapping.join(" | ");
   }
-  
+
   /**
    * Get format-specific type mapping
    */
   private getFormatMapping(format: string): string | undefined {
     const formatMappings: Record<string, string> = {
-      'date': 'string',
-      'date-time': 'string',
-      'time': 'string',
-      'email': 'string',
-      'hostname': 'string',
-      'ipv4': 'string',
-      'ipv6': 'string',
-      'uri': 'string',
-      'uri-reference': 'string',
-      'uri-template': 'string',
-      'url': 'string',
-      'uuid': 'string',
-      'password': 'string',
-      'byte': 'string',
-      'binary': 'string',
-      'int32': 'number',
-      'int64': 'number',
-      'float': 'number',
-      'double': 'number',
-      'decimal': 'number',
+      date: "string",
+      "date-time": "string",
+      time: "string",
+      email: "string",
+      hostname: "string",
+      ipv4: "string",
+      ipv6: "string",
+      uri: "string",
+      "uri-reference": "string",
+      "uri-template": "string",
+      url: "string",
+      uuid: "string",
+      password: "string",
+      byte: "string",
+      binary: "string",
+      int32: "number",
+      int64: "number",
+      float: "number",
+      double: "number",
+      decimal: "number",
     };
-    
+
     return formatMappings[format];
   }
-  
+
   /**
    * Get basic type mapping
    */
   private getBasicTypeMapping(type: string): string | undefined {
     const typeMappings: Record<string, string> = {
-      'string': 'string',
-      'number': 'number',
-      'integer': 'number',
-      'boolean': 'boolean',
-      'array': 'unknown[]',
-      'object': 'Record<string, unknown>',
-      'null': 'null',
+      string: "string",
+      number: "number",
+      integer: "number",
+      boolean: "boolean",
+      array: "unknown[]",
+      object: "Record<string, unknown>",
+      null: "null",
     };
-    
+
     return typeMappings[type];
   }
-  
+
   /**
    * Generate JSDoc comment from description
    */
   protected generateComment(description?: string, example?: unknown): string {
     if (!description && !example) {
-      return '';
+      return "";
     }
-    
-    const lines: string[] = ['/**'];
-    
+
+    const lines: string[] = ["/**"];
+
     if (description) {
       lines.push(` * ${description}`);
     }
-    
+
     if (example !== undefined) {
       lines.push(` * @example ${JSON.stringify(example)}`);
     }
-    
-    lines.push(' */');
-    
-    return lines.join('\n');
+
+    lines.push(" */");
+
+    return lines.join("\n");
   }
-  
+
   /**
    * Check if a property is optional
    */
@@ -228,10 +248,10 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
     if (!required || !propertyName) {
       return true;
     }
-    
+
     return !required.includes(propertyName);
   }
-  
+
   /**
    * Generate optional type wrapper
    */
@@ -239,49 +259,65 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
     if (!isOptional) {
       return type;
     }
-    
+
     if (this.options.useNullishCoalescing) {
       return `${type} | undefined`;
     }
-    
+
     return `${type} | null | undefined`;
   }
-  
+
   /**
    * Convert to camelCase
    */
   private toCamelCase(str: string): string {
-    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (!str) return str;
+    const tokens = str.split(/_+/).filter(Boolean);
+    if (tokens.length === 0) return "";
+    const [firstToken, ...rest] = tokens;
+    const first = firstToken || "";
+    const head = first ? first.charAt(0).toLowerCase() + first.slice(1) : "";
+    const tail = rest.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+    return head + tail.join("");
   }
-  
+
   /**
    * Convert to snake_case
    */
   private toSnakeCase(str: string): string {
-    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    if (!str) return str;
+    return (
+      str
+        // split camel/pascal boundaries
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/_+/g, "_")
+        .toLowerCase()
+    );
   }
-  
+
   /**
    * Convert to PascalCase
    */
   private toPascalCase(str: string): string {
-    return str.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase());
+    if (!str) return str;
+    const tokens = str.split(/_+/).filter(Boolean);
+    return tokens.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join("");
   }
-  
+
   /**
    * Extract type name from schema reference
    */
   protected extractTypeNameFromRef(ref: string): string {
-    const parts = ref.split('/');
-    return parts[parts.length - 1] || 'Unknown';
+    const parts = ref.split("/");
+    return parts[parts.length - 1] || "Unknown";
   }
-  
+
   /**
    * Generate imports for dependencies
    */
   protected generateImports(): string {
     // Don't generate imports if types are in the same file
     // This will be handled by the main generator
-    return '';
+    return "";
   }
 }
