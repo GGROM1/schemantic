@@ -1,5 +1,5 @@
 // Combined TypeScript Module
-// Generated: 2025-09-13T20:38:44.682Z
+// Generated: 2025-09-13T23:39:23.982Z
 // Source Directory: allof-inher-union
 // Architecture: Modular API client with hooks and type definitions
 // api-client
@@ -133,6 +133,73 @@ export class InheritanceApiClient {
   }}
 
 
+
+/**
+ * Validation middleware for API requests and responses
+ */
+export class ValidationError extends Error {
+  constructor(public errors: string[], public data: unknown) {
+    super(`Validation failed: ${errors.join(', ')}`);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Validate request data before sending
+ */
+export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`),
+      data
+    );
+  }
+  
+  return result.data;
+}
+
+/**
+ * Validate response data after receiving
+ */
+export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    console.warn('Response validation failed:', result.error.errors);
+    throw new ValidationError(result.error.errors.map(err => `${err.path.join(".")}: ${err.message}`), data);
+  }
+  
+  return result.data;
+}
+
+
+/**
+ * Utility functions for validation operations
+ */
+
+/**
+ * Create a validation pipeline for multiple schemas
+ */
+export function createValidationPipeline<T>(...schemas: ZodType<unknown>[]): ZodType<T> {
+  return schemas.reduce((acc, schema) => acc.pipe(schema)) as ZodType<T>;
+}
+
+/**
+ * Lazy validation for performance optimization
+ */
+export function createLazyValidator<T>(schemaFactory: () => ZodType<T>) {
+  let schema: ZodType<T> | null = null;
+  
+  return (data: unknown): T => {
+    if (!schema) {
+      schema = schemaFactory();
+    }
+    return schema.parse(data);
+  };
+}
+
 // barrel
 // Barrel exports for type-sync generated code
 export * from './types';
@@ -168,14 +235,67 @@ export function createApiHooks(client: InheritanceApiClient) {
 
 
 // index
-export type { APIBasePet } from './types';
+export type { APIBasePet, BrandedAPIBasePet, APIBasePetSchema, validateAPIBasePet, parseAPIBasePet, isAPIBasePet } from './types';
 export { InheritanceApiClient } from './api-client';
 export { createApiHooks } from './hooks';
 
 // types
+import { z } from 'zod';
+
 export interface APIBasePet {
   id: number;
   name: string;
-  age?: number;
+  age?: number | undefined;
+}
+
+
+
+/**
+ * Zod validation schema for APIBasePet
+ */
+export const APIBasePetSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  age: z.number().int().optional()
+}).strict();
+
+/**
+ * Validate APIBasePet data with detailed error reporting
+ */
+export function validateAPIBasePet(data: unknown): { success: true; data: APIBasePet } | { success: false; errors: string[] } {
+  const result = APIBasePetSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIBasePet data with exception on validation failure
+ */
+export function parseAPIBasePet(data: unknown): APIBasePet {
+  return APIBasePetSchema.parse(data);
+}
+/**
+ * Branded type for APIBasePet with compile-time guarantees
+ */
+export type BrandedAPIBasePet = APIBasePet & { __brand: 'APIBasePet' };
+
+/**
+ * Create a branded APIBasePet instance
+ */
+export function createBrandedAPIBasePet(data: APIBasePet): BrandedAPIBasePet {
+  return data as BrandedAPIBasePet;
+}
+/**
+ * Runtime type guard for APIBasePet
+ */
+export function isAPIBasePet(value: unknown): value is APIBasePet {
+  return APIBasePetSchema.safeParse(value).success;
 }
 

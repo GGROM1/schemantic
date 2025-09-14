@@ -255,9 +255,11 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
   /**
    * Generate optional type wrapper
    */
-  protected wrapOptional(type: string, _isOptional: boolean): string {
-    // Optional properties in interfaces should rely on the '?' modifier,
-    // not a union with undefined/null. Keep the type unchanged here.
+  protected wrapOptional(type: string, isOptional: boolean): string {
+    // For optional properties, append | undefined to the type
+    if (isOptional) {
+      return `${type} | undefined`;
+    }
     return type;
   }
 
@@ -295,7 +297,9 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
   private toPascalCase(str: string): string {
     if (!str) return str;
     const tokens = str.split(/_+/).filter(Boolean);
-    return tokens.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join("");
+    return tokens
+      .map((t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : ""))
+      .join("");
   }
 
   /**
@@ -303,7 +307,12 @@ export abstract class BaseTypeGenerator implements TypeGenerator {
    */
   protected extractTypeNameFromRef(ref: string): string {
     const parts = ref.split("/");
-    return parts[parts.length - 1] || "Unknown";
+    const last = parts[parts.length - 1] || "Unknown";
+    // Preserve existing capitals in token, but normalize separators
+    return last
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_");
   }
 
   /**

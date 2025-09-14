@@ -1,5 +1,5 @@
 // Combined TypeScript Module
-// Generated: 2025-09-13T20:38:44.690Z
+// Generated: 2025-09-13T23:39:23.990Z
 // Source Directory: pag-nested
 // Architecture: Modular API client with hooks and type definitions
 // api-client
@@ -157,6 +157,73 @@ export class BlogApiClient {
   }}
 
 
+
+/**
+ * Validation middleware for API requests and responses
+ */
+export class ValidationError extends Error {
+  constructor(public errors: string[], public data: unknown) {
+    super(`Validation failed: ${errors.join(', ')}`);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Validate request data before sending
+ */
+export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`),
+      data
+    );
+  }
+  
+  return result.data;
+}
+
+/**
+ * Validate response data after receiving
+ */
+export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    console.warn('Response validation failed:', result.error.errors);
+    throw new ValidationError(result.error.errors.map(err => `${err.path.join(".")}: ${err.message}`), data);
+  }
+  
+  return result.data;
+}
+
+
+/**
+ * Utility functions for validation operations
+ */
+
+/**
+ * Create a validation pipeline for multiple schemas
+ */
+export function createValidationPipeline<T>(...schemas: ZodType<unknown>[]): ZodType<T> {
+  return schemas.reduce((acc, schema) => acc.pipe(schema)) as ZodType<T>;
+}
+
+/**
+ * Lazy validation for performance optimization
+ */
+export function createLazyValidator<T>(schemaFactory: () => ZodType<T>) {
+  let schema: ZodType<T> | null = null;
+  
+  return (data: unknown): T => {
+    if (!schema) {
+      schema = schemaFactory();
+    }
+    return schema.parse(data);
+  };
+}
+
 // barrel
 // Barrel exports for type-sync generated code
 export * from './types';
@@ -209,16 +276,70 @@ export function createApiHooks(client: BlogApiClient) {
 
 
 // index
-export type { APIPost, APIUser, APIPostListResponse } from './types';
+export type { APIPost, BrandedAPIPost, APIPostSchema, validateAPIPost, parseAPIPost, isAPIPost, APIUser, BrandedAPIUser, APIUserSchema, validateAPIUser, parseAPIUser, isAPIUser, APIPostListResponse, BrandedAPIPostListResponse, APIPostListResponseSchema, validateAPIPostListResponse, parseAPIPostListResponse, isAPIPostListResponse } from './types';
 export { BlogApiClient } from './api-client';
 export { createApiHooks } from './hooks';
 
 // types
+import { z } from 'zod';
+
 export interface APIPost {
   id: number;
   title: string;
   author: APIUser;
-  tags?: string[];
+  tags?: string[] | undefined;
+}
+
+
+
+/**
+ * Zod validation schema for APIPost
+ */
+export const APIPostSchema = z.object({
+  id: z.number().int(),
+  title: z.string(),
+  author: APIUserSchema,
+  tags: z.array(z.string()).optional()
+}).strict();
+
+/**
+ * Validate APIPost data with detailed error reporting
+ */
+export function validateAPIPost(data: unknown): { success: true; data: APIPost } | { success: false; errors: string[] } {
+  const result = APIPostSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIPost data with exception on validation failure
+ */
+export function parseAPIPost(data: unknown): APIPost {
+  return APIPostSchema.parse(data);
+}
+/**
+ * Branded type for APIPost with compile-time guarantees
+ */
+export type BrandedAPIPost = APIPost & { __brand: 'APIPost' };
+
+/**
+ * Create a branded APIPost instance
+ */
+export function createBrandedAPIPost(data: APIPost): BrandedAPIPost {
+  return data as BrandedAPIPost;
+}
+/**
+ * Runtime type guard for APIPost
+ */
+export function isAPIPost(value: unknown): value is APIPost {
+  return APIPostSchema.safeParse(value).success;
 }
 
 export interface APIUser {
@@ -226,8 +347,108 @@ export interface APIUser {
   username: string;
 }
 
+
+
+/**
+ * Zod validation schema for APIUser
+ */
+export const APIUserSchema = z.object({
+  id: z.number().int(),
+  username: z.string()
+}).strict();
+
+/**
+ * Validate APIUser data with detailed error reporting
+ */
+export function validateAPIUser(data: unknown): { success: true; data: APIUser } | { success: false; errors: string[] } {
+  const result = APIUserSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIUser data with exception on validation failure
+ */
+export function parseAPIUser(data: unknown): APIUser {
+  return APIUserSchema.parse(data);
+}
+/**
+ * Branded type for APIUser with compile-time guarantees
+ */
+export type BrandedAPIUser = APIUser & { __brand: 'APIUser' };
+
+/**
+ * Create a branded APIUser instance
+ */
+export function createBrandedAPIUser(data: APIUser): BrandedAPIUser {
+  return data as BrandedAPIUser;
+}
+/**
+ * Runtime type guard for APIUser
+ */
+export function isAPIUser(value: unknown): value is APIUser {
+  return APIUserSchema.safeParse(value).success;
+}
+
 export interface APIPostListResponse {
   items: APIPost[];
   total: number;
+}
+
+
+
+/**
+ * Zod validation schema for APIPostListResponse
+ */
+export const APIPostListResponseSchema = z.object({
+  items: z.array(APIPostSchema),
+  total: z.number().int()
+}).strict();
+
+/**
+ * Validate APIPostListResponse data with detailed error reporting
+ */
+export function validateAPIPostListResponse(data: unknown): { success: true; data: APIPostListResponse } | { success: false; errors: string[] } {
+  const result = APIPostListResponseSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIPostListResponse data with exception on validation failure
+ */
+export function parseAPIPostListResponse(data: unknown): APIPostListResponse {
+  return APIPostListResponseSchema.parse(data);
+}
+/**
+ * Branded type for APIPostListResponse with compile-time guarantees
+ */
+export type BrandedAPIPostListResponse = APIPostListResponse & { __brand: 'APIPostListResponse' };
+
+/**
+ * Create a branded APIPostListResponse instance
+ */
+export function createBrandedAPIPostListResponse(data: APIPostListResponse): BrandedAPIPostListResponse {
+  return data as BrandedAPIPostListResponse;
+}
+/**
+ * Runtime type guard for APIPostListResponse
+ */
+export function isAPIPostListResponse(value: unknown): value is APIPostListResponse {
+  return APIPostListResponseSchema.safeParse(value).success;
 }
 
