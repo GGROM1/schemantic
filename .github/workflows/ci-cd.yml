@@ -101,9 +101,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
 
-      - name: Fix type-sync binary permissions
-        run: chmod +x $(npm bin)/type-sync
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -150,9 +147,8 @@ jobs:
 
       - name: Test type generation from live API
         run: |
-          # Test that we can generate types from the running FastAPI server
           mkdir -p test-integration-output
-          npx type-sync generate \
+          node dist/cli/index.js generate \
             --url http://localhost:8000/openapi.json \
             --output ./test-integration-output \
             --hooks

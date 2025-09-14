@@ -51,7 +51,7 @@ jobs:
               echo "Testing with $(basename $schema)..."
               
               start_time=$(date +%s%N)
-              timeout 300 npx type-sync generate \
+              timeout 300 node dist/cli/index.js generate \
                 --file "$schema" \
                 --output "./perf-output-$(basename $schema .json)" \
                 --quiet || echo "Timeout or error with $schema"
@@ -70,7 +70,7 @@ jobs:
           echo "🧠 Testing memory usage..."
 
           # Run with memory monitoring
-          /usr/bin/time -v npx type-sync generate \
+          /usr/bin/time -v node dist/cli/index.js generate \
             --file examples/example-generated/react-app/openapi-schema.json \
             --output ./memory-test-output \
             --quiet 2>&1 | grep -E "(Maximum resident set size|User time|System time)" || true
@@ -81,7 +81,7 @@ jobs:
 
           # Test multiple concurrent generations
           for i in {1..5}; do
-            npx type-sync generate \
+            node dist/cli/index.js generate \
               --file examples/example-generated/react-app/openapi-schema.json \
               --output "./concurrent-test-$i" \
               --quiet &
