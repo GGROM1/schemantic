@@ -749,6 +749,7 @@ Have an idea? [Start a discussion](https://github.com/Cstannahill/type-sync/disc
 ```bash
 # Clone the repository
 git clone https://github.com/Cstannahill/type-sync.git
+
 cd type-sync
 
 # Install dependencies
