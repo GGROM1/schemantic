@@ -230,7 +230,9 @@ jobs:
           npm version $VERSION --no-git-tag-version
 
       - name: Publish to NPM
-        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
 
       - name: Create GitHub release assets
         run: |
