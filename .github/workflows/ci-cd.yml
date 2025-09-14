@@ -101,6 +101,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
 
+      - name: Fix type-sync binary permissions
+        run: chmod +x $(npm bin)/type-sync
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -225,8 +228,6 @@ jobs:
 
       - name: Publish to NPM
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release assets
         run: |
