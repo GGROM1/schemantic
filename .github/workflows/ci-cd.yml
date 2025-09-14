@@ -229,6 +229,12 @@ jobs:
           echo "Publishing version: $VERSION"
           npm version $VERSION --no-git-tag-version
 
+      - name: Bump version if unchanged
+        run: |
+          if npm publish --dry-run 2>&1 | grep -q 'Version not changed'; then
+            npm version patch --no-git-tag-version
+          fi
+
       - name: Publish to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
