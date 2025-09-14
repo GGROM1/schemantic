@@ -1,3 +1,4 @@
+import { z, ZodType } from 'zod';
 import { APIUserResponse, APIItem, APICreateItemRequest } from './types';
 
 export interface ApiClientConfig {
@@ -165,7 +166,7 @@ export class ValidationError extends Error {
 /**
  * Validate request data before sending
  */
-export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+export function validateRequest<T>(data: unknown, schema: ZodType<T>): T {
   const result = schema.safeParse(data);
   
   if (!result.success) {
@@ -181,7 +182,7 @@ export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
 /**
  * Validate response data after receiving
  */
-export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+export function validateResponse<T>(data: unknown, schema: ZodType<T>): T {
   const result = schema.safeParse(data);
   
   if (!result.success) {

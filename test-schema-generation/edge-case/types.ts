@@ -17,12 +17,7 @@ export const APIUserResponseSchema = z.object({
   name: z.string(),
   role: APIUserRoleSchema,
   profile: APIUserProfileSchema.optional()
-}).strict().transform((val) => ({
-  id: val["id"],
-  name: val["name"],
-  role: val["role"],
-  profile: val["profile"]
-}));
+}).strict();
 
 /**
  * Validate APIUserResponse data with detailed error reporting
@@ -71,6 +66,52 @@ export enum APIUserRole {
 }
 export type APIUserRoleValues = "ADMIN" | "EDITOR" | "VIEWER";
 
+
+/**
+ * Zod validation schema for APIUserRole
+ */
+export const APIUserRoleSchema = z.enum(["ADMIN", "EDITOR", "VIEWER"]);
+
+/**
+ * Validate APIUserRole data with detailed error reporting
+ */
+export function validateAPIUserRole(data: unknown): { success: true; data: APIUserRole } | { success: false; errors: string[] } {
+  const result = APIUserRoleSchema.safeParse(data);
+  
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  
+  return {
+    success: false,
+    errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+  };
+}
+
+/**
+ * Parse APIUserRole data with exception on validation failure
+ */
+export function parseAPIUserRole(data: unknown): APIUserRole {
+  return APIUserRoleSchema.parse(data);
+}
+/**
+ * Branded type for APIUserRole with compile-time guarantees
+ */
+export type BrandedAPIUserRole = APIUserRole & { __brand: 'APIUserRole' };
+
+/**
+ * Create a branded APIUserRole instance
+ */
+export function createBrandedAPIUserRole(data: APIUserRole): BrandedAPIUserRole {
+  return data as BrandedAPIUserRole;
+}
+/**
+ * Runtime type guard for APIUserRole
+ */
+export function isAPIUserRole(value: unknown): value is APIUserRole {
+  return APIUserRoleSchema.safeParse(value).success;
+}
+
 export interface APIUserProfile {
   bio?: string | undefined;
   social?: string[] | undefined;
@@ -84,10 +125,7 @@ export interface APIUserProfile {
 export const APIUserProfileSchema = z.object({
   bio: z.string().optional(),
   social: z.array(z.string()).optional()
-}).strict().transform((val) => ({
-  bio: val["bio"],
-  social: val["social"]
-}));
+}).strict();
 
 /**
  * Validate APIUserProfile data with detailed error reporting
@@ -141,14 +179,10 @@ export interface APIBook {
  * Zod validation schema for APIBook
  */
 export const APIBookSchema = z.object({
-  type: z.enum(["book"]),
+  type: z.literal("book"),
   title: z.string(),
   author: z.string()
-}).strict().transform((val) => ({
-  type: val["type"],
-  title: val["title"],
-  author: val["author"]
-}));
+}).strict();
 
 /**
  * Validate APIBook data with detailed error reporting
@@ -202,14 +236,10 @@ export interface APIMovie {
  * Zod validation schema for APIMovie
  */
 export const APIMovieSchema = z.object({
-  type: z.enum(["movie"]),
+  type: z.literal("movie"),
   title: z.string(),
   director: z.string()
-}).strict().transform((val) => ({
-  type: val["type"],
-  title: val["title"],
-  director: val["director"]
-}));
+}).strict();
 
 /**
  * Validate APIMovie data with detailed error reporting
@@ -263,11 +293,8 @@ export interface APIItem {
  */
 export const APIItemSchema = z.object({
   id: z.number().int(),
-  data: APICreateItemRequestSchema
-}).strict().transform((val) => ({
-  id: val["id"],
-  data: val["data"]
-}));
+  data: z.discriminatedUnion("type", [APIBookSchema, APIMovieSchema])
+}).strict();
 
 /**
  * Validate APIItem data with detailed error reporting

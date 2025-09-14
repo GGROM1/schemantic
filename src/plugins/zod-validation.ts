@@ -144,14 +144,11 @@ export const zodValidationPlugin: TypeSyncPlugin = {
     try {
       const options = getPluginOptions(context);
 
-      if (!generatedType.isInterface) {
-        return; // Only process interface types
-      }
-
-      // Generate Zod schema for the type
+      // Build schema using core builder that handles unions/objects/primitives
+      const srcSchema = generatedType.sourceSchema;
       const zodSchema = await generateZodSchema(
         typeName,
-        generatedType.sourceSchema,
+        srcSchema,
         options,
         context
       );
@@ -364,6 +361,13 @@ function buildZodSchema(
   depth = 0,
   context?: GenerationContext
 ): string {
+  // Handle oneOf/discriminated unions early
+  if (isOpenAPISchemaObject(schema)) {
+    const obj = schema as ExtendedSchemaObject;
+    if (Array.isArray(obj.oneOf) && obj.oneOf.length > 0) {
+      return buildOneOfSchema(obj, options, context);
+    }
+  }
   // Handle schema references first
   if (
     typeof schema === "object" &&
@@ -374,6 +378,16 @@ function buildZodSchema(
     // Extract type name from reference and generate schema reference
     const refPath = schema.$ref as string;
     const typeName = refPath.split("/").pop();
+    // Try to resolve and inline if it's a union (oneOf)
+    if (context?.schemaResolver) {
+      const resolved = context.schemaResolver(refPath);
+      if (resolved && isOpenAPISchemaObject(resolved)) {
+        const obj = resolved as ExtendedSchemaObject;
+        if (Array.isArray(obj.oneOf) && obj.oneOf.length > 0) {
+          return buildOneOfSchema(obj, options, context);
+        }
+      }
+    }
     if (typeName) {
       const formattedTypeName = formatTypeName(typeName);
       return `${formattedTypeName}Schema`;
@@ -469,8 +483,14 @@ function buildStringSchema(
   }
 
   if (schema.enum && Array.isArray(schema.enum)) {
-    const enumValues = schema.enum.map((val) => `"${val}"`).join(", ");
-    zodSchema = `z.enum([${enumValues}])`;
+    if (schema.enum.length === 1) {
+      zodSchema = `z.literal(${JSON.stringify(schema.enum[0])})`;
+    } else {
+      const enumValues = schema.enum
+        .map((val) => JSON.stringify(val))
+        .join(", ");
+      zodSchema = `z.enum([${enumValues}])`;
+    }
   }
 
   // Add custom error messages if configured
@@ -562,8 +582,9 @@ function buildObjectSchema(
 
       if (wantsCamel) {
         const camel = toCamel(propName);
-        // Always map to target TS property names; if unchanged, still assign to keep structure predictable
-        transformPairs.push(`  ${camel}: val[${JSON.stringify(propName)}]`);
+        if (camel !== propName) {
+          transformPairs.push(`  ${camel}: val[${JSON.stringify(propName)}]`);
+        }
       }
     }
   }
@@ -574,6 +595,36 @@ function buildObjectSchema(
     return `${base}.transform((val) => ({\n${transformPairs.join(",\n")}\n}))`;
   }
   return base;
+}
+
+/**
+ * Build Zod union/discriminatedUnion schema for oneOf
+ */
+function buildOneOfSchema(
+  schema: ExtendedSchemaObject,
+  options: ZodValidationOptions,
+  context?: GenerationContext
+): string {
+  const variants = (schema.oneOf || []).map((variant) => {
+    if (
+      typeof variant === "object" &&
+      variant !== null &&
+      "$ref" in (variant as Record<string, unknown>)
+    ) {
+      const refPath = (variant as Record<string, unknown>)["$ref"] as string;
+      const name = refPath.split("/").pop() || "Unknown";
+      return `${formatTypeName(name)}Schema`;
+    }
+    return buildZodSchema(variant as ResolvedSchema, options, 0, context);
+  });
+
+  const discriminator = schema.discriminator?.propertyName;
+  if (discriminator) {
+    return `z.discriminatedUnion(${JSON.stringify(
+      discriminator
+    )}, [${variants.join(", ")}])`;
+  }
+  return `z.union([${variants.join(", ")}])`;
 }
 
 /**
@@ -671,6 +722,24 @@ function generateValidationMiddleware(
   _context: GenerationContext,
   options: ZodValidationOptions
 ): string {
+  // Ensure z/ZodType import is present in client content
+  if (!_generatedClient.content.includes("from 'zod'")) {
+    _generatedClient.content =
+      `import { z, ZodType } from 'zod';\n` + _generatedClient.content;
+  } else if (!_generatedClient.content.includes("ZodType")) {
+    // Append ZodType to existing import if only z is imported
+    _generatedClient.content = _generatedClient.content.replace(
+      /import\s*\{([^}]*)\}\s*from\s*['"]zod['"];?/,
+      (_m: string, p1: string) => {
+        const names = p1
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        if (!names.includes("ZodType")) names.push("ZodType");
+        return `import { ${names.join(", ")} } from 'zod';`;
+      }
+    );
+  }
   const strictModeCode = options.strictMode
     ? 'throw new ValidationError(result.error.errors.map(err => `${err.path.join(".")}: ${err.message}`), data);'
     : "// In non-strict mode, return data as-is";
@@ -689,7 +758,7 @@ export class ValidationError extends Error {
 /**
  * Validate request data before sending
  */
-export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
+export function validateRequest<T>(data: unknown, schema: ZodType<T>): T {
   const result = schema.safeParse(data);
   
   if (!result.success) {
@@ -705,7 +774,7 @@ export function validateRequest<T>(data: unknown, schema: z.ZodType<T>): T {
 /**
  * Validate response data after receiving
  */
-export function validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
+export function validateResponse<T>(data: unknown, schema: ZodType<T>): T {
   const result = schema.safeParse(data);
   
   if (!result.success) {

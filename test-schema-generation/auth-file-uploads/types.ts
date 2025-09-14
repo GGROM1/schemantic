@@ -121,7 +121,9 @@ export interface APIFileUploadResponse {
 export const APIFileUploadResponseSchema = z.object({
   file_id: z.string(),
   url: z.string()
-}).strict();
+}).strict().transform((val) => ({
+  fileId: val["file_id"]
+}));
 
 /**
  * Validate APIFileUploadResponse data with detailed error reporting
