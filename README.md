@@ -2,7 +2,6 @@
 
 [![npm version](https://badge.fury.io/js/@cstannahill%2Ftype-sync.svg)](https://badge.fury.io/js/@cstannahill%2Ftype-sync)
 [![CI/CD](https://github.com/cstannahill/type-sync/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/cstannahill/type-sync/actions/workflows/ci-cd.yml)
-[![codecov](https://codecov.io/gh/cstannahill/type-sync/branch/main/graph/badge.svg)](https://codecov.io/gh/cstannahill/type-sync)
 [![npm downloads](https://img.shields.io/npm/dm/@cstannahill/type-sync.svg)](https://www.npmjs.com/package/@cstannahill/type-sync)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
