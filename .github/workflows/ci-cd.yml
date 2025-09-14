@@ -48,7 +48,6 @@ jobs:
         if: matrix.node-version == 18
         uses: codecov/codecov-action@v3
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
   validate-package:
@@ -129,15 +128,20 @@ jobs:
           def read_item(item_id: int):
               return {"item_id": item_id}
           PY
-          python -m uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir ci-fastapi &
-          # Wait for server
+          python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir ci-fastapi &
+          # Wait for server (IPv4)
+          ready=0
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:8000/openapi.json >/dev/null; then
-              echo "FastAPI is up"; break
+            if curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null; then
+              echo "FastAPI is up"; ready=1; break
             fi
             sleep 1
           done
-          curl -fsS http://localhost:8000/openapi.json | head -c 200 || true
+          if [ "$ready" -ne 1 ]; then
+            echo "❌ FastAPI did not become ready on http://127.0.0.1:8000"
+            exit 1
+          fi
+          curl -fsS http://127.0.0.1:8000/openapi.json | head -c 200 || true
 
       - name: Install NPM dependencies
         run: npm ci
@@ -149,7 +153,7 @@ jobs:
         run: |
           mkdir -p test-integration-output
           node dist/cli/index.js generate \
-            --url http://localhost:8000/openapi.json \
+            --url http://127.0.0.1:8000/openapi.json \
             --output ./test-integration-output \
             --hooks
 
