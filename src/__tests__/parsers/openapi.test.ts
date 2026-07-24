@@ -117,6 +117,135 @@ describe("OpenAPIParser", () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it("should validate an OpenAPI 3.1 social API schema", async () => {
+      const socialSchema: OpenAPISchema = {
+        openapi: "3.1.0",
+        info: {
+          title: "Xquik Social API Fixture",
+          version: "1.0.0",
+        },
+        servers: [{ url: "https://xquik.com" }],
+        security: [{ apiKey: [] }],
+        paths: {
+          "/api/v1/x/tweets/search": {
+            get: {
+              operationId: "searchTweets",
+              parameters: [
+                {
+                  name: "q",
+                  in: "query",
+                  required: true,
+                  schema: { type: "string" },
+                },
+                {
+                  name: "limit",
+                  in: "query",
+                  schema: {
+                    type: "integer",
+                    minimum: 1,
+                    maximum: 100,
+                    default: 20,
+                  },
+                },
+                {
+                  name: "X-API-Key",
+                  in: "header",
+                  required: true,
+                  schema: { type: "string" },
+                },
+              ],
+              responses: {
+                "200": {
+                  description: "Tweet search response",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        $ref: "#/components/schemas/SearchTweetsResponse",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "/api/v1/x/tweets/{tweetId}/reply": {
+            post: {
+              operationId: "replyToTweet",
+              parameters: [
+                {
+                  name: "tweetId",
+                  in: "path",
+                  required: true,
+                  schema: { type: "string" },
+                },
+              ],
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/ReplyRequest" },
+                  },
+                },
+              },
+              responses: {
+                "200": {
+                  description: "Created reply",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/Tweet" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: {
+          securitySchemes: {
+            apiKey: {
+              type: "apiKey",
+              in: "header",
+              name: "X-API-Key",
+            },
+          },
+          schemas: {
+            SearchTweetsResponse: {
+              type: "object",
+              required: ["data"],
+              properties: {
+                data: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Tweet" },
+                },
+                nextCursor: { type: "string" },
+              },
+            },
+            Tweet: {
+              type: "object",
+              required: ["id", "text", "authorUsername"],
+              properties: {
+                id: { type: "string" },
+                text: { type: "string" },
+                authorUsername: { type: "string" },
+              },
+            },
+            ReplyRequest: {
+              type: "object",
+              required: ["text"],
+              properties: {
+                text: { type: "string", maxLength: 280 },
+              },
+            },
+          },
+        },
+      };
+
+      const result = await parser.validate(socialSchema);
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
     it("should detect unsupported OpenAPI version", async () => {
       const invalidSchema = {
         ...validSchema,
