@@ -30,13 +30,8 @@ import {
  * OpenAPI parser implementation
  */
 export class OpenAPIParser extends BaseSchemaParser<OpenAPISchema> {
-  private readonly SUPPORTED_VERSIONS = [
-    "3.0.0",
-    "3.0.1",
-    "3.0.2",
-    "3.0.3",
-    "3.1.0",
-  ];
+  private readonly SUPPORTED_VERSION_PATTERN = /^3\.(?:0|1)\.\d+$/;
+  private readonly SUPPORTED_VERSION_RANGES = ["3.0.x", "3.1.x"];
 
   constructor(config: TypeSyncConfig) {
     super(config);
@@ -71,7 +66,7 @@ export class OpenAPIParser extends BaseSchemaParser<OpenAPISchema> {
     const warnings: ValidationWarning[] = [];
 
     // Validate OpenAPI version
-    if (!this.SUPPORTED_VERSIONS.includes(schema.openapi)) {
+    if (!this.SUPPORTED_VERSION_PATTERN.test(schema.openapi)) {
       errors.push({
         code: "UNSUPPORTED_VERSION",
         message: `Unsupported OpenAPI version: ${schema.openapi}`,
@@ -150,7 +145,7 @@ export class OpenAPIParser extends BaseSchemaParser<OpenAPISchema> {
       name: "OpenAPI Parser",
       version: "1.0.0",
       supportedFormats: ["json", "yaml"],
-      supportedVersions: this.SUPPORTED_VERSIONS,
+      supportedVersions: this.SUPPORTED_VERSION_RANGES,
       description:
         "Parser for OpenAPI 3.0+ specifications from FastAPI applications",
     };
