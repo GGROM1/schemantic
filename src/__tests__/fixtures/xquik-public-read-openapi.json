@@ -1,0 +1,235 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Xquik API",
+    "version": "1.0",
+    "description": "Public read-only contract fixture. Not affiliated with X Corp."
+  },
+  "servers": [
+    {
+      "url": "https://xquik.com"
+    }
+  ],
+  "paths": {
+    "/api/v1/x/tweets/search": {
+      "get": {
+        "operationId": "searchTweets",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queryType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Latest",
+                "Top"
+              ],
+              "default": "Latest"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TweetFilterFromUser"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedTweets"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "oauthBearer": []
+          },
+          {}
+        ]
+      }
+    },
+    "/api/v1/x/tweets/{id}": {
+      "get": {
+        "operationId": "lookupTweet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tweet detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTweet"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tweet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "oauthBearer": []
+          },
+          {}
+        ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "TweetFilterFromUser": {
+        "name": "fromUser",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Filter by author username."
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "oauthBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "PaginatedTweets": {
+        "type": "object",
+        "required": [
+          "tweets",
+          "has_next_page",
+          "next_cursor"
+        ],
+        "properties": {
+          "tweets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTweet"
+            }
+          },
+          "has_next_page": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchTweet": {
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "retweetCount",
+          "replyCount",
+          "likeCount",
+          "quoteCount",
+          "viewCount",
+          "bookmarkCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "likeCount": {
+            "type": "integer"
+          },
+          "retweetCount": {
+            "type": "integer"
+          },
+          "replyCount": {
+            "type": "integer"
+          },
+          "quoteCount": {
+            "type": "integer"
+          },
+          "viewCount": {
+            "type": "integer"
+          },
+          "bookmarkCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "invalid_input"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error guidance."
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { TypeSyncConfig } from "../../types/core";
 import { OpenAPISchema, OpenAPIInfo } from "../../types/openapi";
 import { isOpenAPISchemaObject } from "../../types/schema";
 import { createTestConfig } from "../test-config";
+import xquikSchema from "../fixtures/xquik-public-read-openapi.json";
 
 describe("OpenAPIParser", () => {
   const createConfig = (): TypeSyncConfig =>
@@ -117,19 +118,46 @@ describe("OpenAPIParser", () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it("should detect unsupported OpenAPI version", async () => {
-      const invalidSchema = {
-        ...validSchema,
-        openapi: "2.0.0", // Unsupported version
-      };
+    it.each(["3.0.4", "3.1.1", "3.1.2"])(
+      "should validate supported patch release %s",
+      async (openapi) => {
+        const result = await parser.validate({
+          ...validSchema,
+          openapi,
+        });
 
-      const result = await parser.validate(invalidSchema as OpenAPISchema);
+        expect(result.isValid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      }
+    );
 
-      expect(result.isValid).toBe(false);
-      expect(
-        result.errors.some((error) => error.code === "UNSUPPORTED_VERSION")
-      ).toBe(true);
+    it("should validate the public Xquik OpenAPI fixture", async () => {
+      const parsed = await parser.parse({ data: xquikSchema });
+      const result = await parser.validate(parsed);
+      const paginatedTweets = parser
+        .createResolver(parsed)("#/components/schemas/PaginatedTweets");
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(paginatedTweets).toBeDefined();
     });
+
+    it.each(["2.0.0", "3.2.0"])(
+      "should detect unsupported OpenAPI version %s",
+      async (openapi) => {
+        const invalidSchema = {
+          ...validSchema,
+          openapi,
+        };
+
+        const result = await parser.validate(invalidSchema as OpenAPISchema);
+
+        expect(result.isValid).toBe(false);
+        expect(
+          result.errors.some((error) => error.code === "UNSUPPORTED_VERSION")
+        ).toBe(true);
+      }
+    );
 
     it("should detect missing required fields", async () => {
       const invalidSchema = {
@@ -308,7 +336,7 @@ describe("OpenAPIParser", () => {
       expect(metadata.name).toBe("OpenAPI Parser");
       expect(metadata.version).toBe("1.0.0");
       expect(metadata.supportedFormats).toContain("json");
-      expect(metadata.supportedVersions).toContain("3.0.0");
+      expect(metadata.supportedVersions).toEqual(["3.0.x", "3.1.x"]);
       expect(metadata.description).toContain("OpenAPI");
     });
   });
